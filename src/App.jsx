@@ -5,7 +5,7 @@ import rehypeHighlight from 'rehype-highlight';
 import {
   ArrowUp, Check, ChevronDown, CircleStop, Copy, FileText, Menu,
   MessageSquare, Moon, Paperclip, PanelLeftClose, Plus, Search,
-  Settings2, Sparkles, Sun, Trash2, X, Zap
+  Sparkles, Sun, Trash2, X, Zap
 } from 'lucide-react';
 
 const MODELS = [
@@ -397,13 +397,6 @@ export default function App() {
     setGeneratingId(null);
     notify('Response stopped');
   }, [notify]);
-
-  const onComposerKeyDown = event => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      sendMessage();
-    }
-  };
 
   const onComposerKeyDown = event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
