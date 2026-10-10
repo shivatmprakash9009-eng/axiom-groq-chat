@@ -458,6 +458,7 @@ export default function App() {
             {sidebarOpen && <span className="brand-word">axiom<span>.</span></span>}
           </button>
           {sidebarOpen && <button className="icon-button sidebar-toggle" type="button" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={18} /></button>}
+          <button className="icon-button sidebar-mobile-close" type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close sidebar"><X size={18} /></button>
         </div>
 
         {!sidebarOpen && <button className="icon-button expand-sidebar" type="button" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar"><Menu size={18} /></button>}
