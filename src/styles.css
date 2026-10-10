@@ -63,7 +63,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .brand-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #fff; background: #10a37f; }
 .brand-word { font-size: 18px; font-weight: 650; letter-spacing: -.8px; }
 .brand-word span { color: var(--accent); }
-.sidebar-toggle { width: 32px; height: 32px; }\n.sidebar-mobile-close { display: none; }
+.sidebar-toggle { width: 32px; height: 32px; }
+.sidebar-mobile-close { display: none; }
 .expand-sidebar { margin-bottom: 14px; }
 .sidebar-actions { display: flex; flex-direction: column; gap: 4px; }
 .new-chat, .search-chat { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; height: 39px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font-size: 13px; font-weight: 500; text-align: left; }
@@ -215,7 +216,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   .sidebar-closed .history-panel, .sidebar-closed .sidebar-bottom, .sidebar-closed .sidebar-actions .search-chat { display: none; }
 }
 @media (max-width: 720px) {
-  .sidebar-toggle { display: none; }\n  .sidebar-mobile-close { display: inline-grid; }\n  .new-chat kbd, .search-chat kbd { display: none; }\n  .sidebar-open, .sidebar-closed { position: fixed; z-index: 25; inset: 0 auto 0 0; width: min(290px, 86vw); height: 100dvh; padding: 12px 10px 8px; transform: translateX(-105%); transition: transform .2s ease; box-shadow: var(--shadow); }
+  .sidebar-toggle { display: none; }
+  .sidebar-mobile-close { display: inline-grid; }
+  .new-chat kbd, .search-chat kbd { display: none; }\n  .sidebar-open, .sidebar-closed { position: fixed; z-index: 25; inset: 0 auto 0 0; width: min(290px, 86vw); height: 100dvh; padding: 12px 10px 8px; transform: translateX(-105%); transition: transform .2s ease; box-shadow: var(--shadow); }
   .sidebar-mobile-open { transform: translateX(0); }
   .sidebar-closed { align-items: stretch; }
   .sidebar-closed .sidebar-top { justify-content: space-between; margin: 0 2px 17px; }
