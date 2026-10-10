@@ -187,7 +187,7 @@ export function ChatWorkspace() {
     setMobileSidebarOpen(false);
     mutation.mutate({
       chatId, placeholderId,
-      requestMessages: [...prior, { role: "user", content: apiPrompt }].slice(-32),
+      requestMessages: ([...prior, { role: "user" as const, content: apiPrompt }] as ConversationMessage[]).slice(-32),
     });
   };
 
