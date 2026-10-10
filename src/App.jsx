@@ -405,6 +405,13 @@ export default function App() {
     }
   };
 
+  const onComposerKeyDown = event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      sendMessage();
+    }
+  };
+
   const handleFile = async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
