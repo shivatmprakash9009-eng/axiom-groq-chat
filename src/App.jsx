@@ -15,9 +15,7 @@ gsap.registerPlugin(useGSAP);
 
 const MODELS = [
   { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', description: 'Advanced reasoning' },
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', description: 'Versatile' },
-  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', description: 'Fast and capable' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', description: 'Low latency' }
+  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', description: 'Fast and capable' }
 ];
 const STORAGE_KEY = 'axiom.groq-chat.v1';
 const STARTERS = [
