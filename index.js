@@ -10,9 +10,7 @@ const API_KEY = process.env.GROQ_API_KEY;
 const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'openai/gpt-oss-120b';
 const ALLOWED_MODELS = new Set([
   'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant'
+  'openai/gpt-oss-20b'
 ]);
 
 app.disable('x-powered-by');
@@ -39,9 +37,7 @@ app.get('/api/models', (_req, res) => {
   res.json({
     models: [
       { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', note: 'Advanced reasoning' },
-      { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', note: 'Fast and capable' },
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', note: 'Versatile' },
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', note: 'Low latency' }
+      { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', note: 'Fast and capable' }
     ]
   });
 });
