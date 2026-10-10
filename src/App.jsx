@@ -21,7 +21,8 @@ const now = () => Date.now();
 
 function loadChats() {
   try {
-    const primary = localStorage.getItem(CHAT_STORAGE);\n    const data = JSON.parse(primary || localStorage.getItem('axiom.groq-chat.v1') || '[]');
+    const primary = localStorage.getItem(CHAT_STORAGE);
+    const data = JSON.parse(primary || localStorage.getItem('axiom.groq-chat.v1') || '[]');
     return Array.isArray(data) ? data.filter(chat => chat && typeof chat.id === 'string' && Array.isArray(chat.messages)) : [];
   } catch {
     return [];
