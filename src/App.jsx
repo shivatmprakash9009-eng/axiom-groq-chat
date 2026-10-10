@@ -21,7 +21,7 @@ const now = () => Date.now();
 
 function loadChats() {
   try {
-    const data = JSON.parse(localStorage.getItem(CHAT_STORAGE) || '[]');
+    const primary = localStorage.getItem(CHAT_STORAGE);\n    const data = JSON.parse(primary || localStorage.getItem('axiom.groq-chat.v1') || '[]');
     return Array.isArray(data) ? data.filter(chat => chat && typeof chat.id === 'string' && Array.isArray(chat.messages)) : [];
   } catch {
     return [];
@@ -224,7 +224,7 @@ export default function App() {
       const modifier = event.metaKey || event.ctrlKey;
       if (modifier && event.shiftKey && event.key.toLowerCase() === 'o') {
         event.preventDefault();
-        newChat();
+        startNewChat();
       }
       if (modifier && event.key.toLowerCase() === 'k') {
         event.preventDefault();
