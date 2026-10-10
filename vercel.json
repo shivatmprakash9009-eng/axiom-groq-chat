@@ -1,8 +1,5 @@
 {
+  "framework": "nextjs",
   "buildCommand": "npm run build",
-  "functions": {
-    "index.js": {
-      "includeFiles": "dist/**"
-    }
-  }
+  "installCommand": "npm install"
 }
