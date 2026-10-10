@@ -1,299 +1,597 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { gsap } from 'gsap';
-import { useGSAP } from '@gsap/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import {
-  Activity, ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileText, Menu,
-  MessageSquare, Moon, Paperclip, Plus, Search, Send, Settings2, Sparkles,
-  Square, Sun, Trash2, X, Zap, PanelLeftClose
+  ArrowUp, Check, ChevronDown, CircleStop, Copy, FileText, Menu,
+  MessageSquare, Moon, Paperclip, PanelLeftClose, Plus, Search,
+  Settings2, Sparkles, Sun, Trash2, X, Zap
 } from 'lucide-react';
 
-gsap.registerPlugin(useGSAP);
-
 const MODELS = [
-  { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', description: 'Advanced reasoning' },
-  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', description: 'Fast and capable' }
+  { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', detail: 'Best for complex tasks' },
+  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B', detail: 'Faster responses' }
 ];
-const STORAGE_KEY = 'axiom.groq-chat.v1';
-const STARTERS = [
-  { icon: '✳', title: 'Think something through', text: 'Help me explore an idea and find the strongest next step.' },
-  { icon: '⌘', title: 'Build with AI', text: 'Help me design a practical AI-powered product from scratch.' },
-  { icon: '↗', title: 'Write with clarity', text: 'Help me write something clear, engaging, and well structured.' },
-  { icon: '⌕', title: 'Learn a new concept', text: 'Explain a complex concept with a simple example and a deeper view.' }
-];
+const CHAT_STORAGE = 'axiom.groq-chat.v2';
+const ACTIVE_STORAGE = 'axiom.groq-chat.active.v2';
+const THEME_STORAGE = 'axiom.groq-chat.theme.v1';
+const MAX_CHATS = 100;
 const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const timestamp = () => Date.now();
+const now = () => Date.now();
 
-function readChats() {
+function loadChats() {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+    const data = JSON.parse(localStorage.getItem(CHAT_STORAGE) || '[]');
+    return Array.isArray(data) ? data.filter(chat => chat && typeof chat.id === 'string' && Array.isArray(chat.messages)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function shortTitle(text) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  return clean.length > 46 ? `${clean.slice(0, 46).trimEnd()}…` : clean || 'New chat';
+}
+
+function historyGroup(timestamp) {
+  const date = new Date(timestamp || now());
+  const today = new Date();
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDifference = Math.round((startToday - startDate) / 86400000);
+  if (dayDifference <= 0) return 'Today';
+  if (dayDifference === 1) return 'Yesterday';
+  if (dayDifference < 7) return 'Previous 7 days';
+  if (dayDifference < 30) return 'Previous 30 days';
+  return 'Older';
 }
 
 function Markdown({ content }) {
-  return <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{content || ''}</ReactMarkdown>;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{
+        pre({ children, ...props }) {
+          return (
+            <div className="code-block">
+              <div className="code-block-top"><span>Code</span><CodeCopy text={extractCode(children)} /></div>
+              <pre {...props}>{children}</pre>
+            </div>
+          );
+        },
+        a({ href, children, ...props }) {
+          return <a href={href} target="_blank" rel="noreferrer" {...props}>{children}</a>;
+        }
+      }}
+    >
+      {content || ''}
+    </ReactMarkdown>
+  );
 }
 
-function CodeCopy({ children }) {
+function extractCode(children) {
+  const walk = (node) => {
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(walk).join('');
+    if (node && typeof node === 'object' && 'props' in node) return walk(node.props.children);
+    return '';
+  };
+  return walk(children);
+}
+
+function CodeCopy({ text }) {
   const [copied, setCopied] = useState(false);
-  const copy = async () => {
+  const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(String(children ?? ''));
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
-    } catch { setCopied(false); }
+    } catch {
+      setCopied(false);
+    }
   };
-  return <button className="code-copy" onClick={copy} aria-label="Copy code"><Copy size={13} />{copied ? 'Copied' : 'Copy'}</button>;
+  return <button className="code-copy" onClick={onCopy} type="button"><Copy size={13} />{copied ? 'Copied' : 'Copy code'}</button>;
+}
+
+function ChatMessage({ message, onCopy, isLastAssistant, isGenerating }) {
+  const isUser = message.role === 'user';
+  return (
+    <article className={`message-row ${isUser ? 'message-user' : 'message-assistant'}`}>
+      {!isUser && <div className="assistant-mark" aria-hidden="true"><Sparkles size={16} /></div>}
+      <div className="message-content-wrap">
+        {!isUser && <div className="message-author">Axiom</div>}
+        {isUser ? (
+          <div className="user-bubble">
+            {message.fileName && <div className="message-file"><FileText size={15} /><span>{message.fileName}</span></div>}
+            {message.content}
+          </div>
+        ) : (
+          <div className="markdown-body">
+            {message.content ? <Markdown content={message.content} /> : (
+              <div className="thinking-dots" aria-label="Generating response"><span /><span /><span /></div>
+            )}
+          </div>
+        )}
+        {!isUser && message.content && !(isLastAssistant && isGenerating) && (
+          <div className="message-actions">
+            <button type="button" onClick={() => onCopy(message.content)} aria-label="Copy response"><Copy size={14} /><span>Copy</span></button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
 }
 
 export default function App() {
-  const reducedMotion = useReducedMotion();
-  const shellRef = useRef(null);
+  const [chats, setChats] = useState(loadChats);
+  const [activeId, setActiveId] = useState(() => {
+    try { return localStorage.getItem(ACTIVE_STORAGE); } catch { return null; }
+  });
+  const [draft, setDraft] = useState('');
+  const [model, setModel] = useState(MODELS[0].id);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem(THEME_STORAGE) === 'dark'; } catch { return false; }
+  });
+  const [attachment, setAttachment] = useState(null);
+  const [health, setHealth] = useState({ loaded: false, configured: false });
+  const [generatingId, setGeneratingId] = useState(null);
+  const [toast, setToast] = useState('');
   const textareaRef = useRef(null);
   const fileRef = useRef(null);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
-  const [chats, setChats] = useState(readChats);
-  const [activeId, setActiveId] = useState(null);
-  const [draft, setDraft] = useState('');
-  const [model, setModel] = useState(MODELS[0].id);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileSidebar, setMobileSidebar] = useState(false);
-  const [dark, setDark] = useState(false);
-  const [search, setSearch] = useState('');
-  const [health, setHealth] = useState({ loaded: false, configured: false });
-  const [attachment, setAttachment] = useState(null);
-  const [generatingId, setGeneratingId] = useState(null);
-  const [toast, setToast] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const modelMenuRef = useRef(null);
 
   const activeChat = chats.find(chat => chat.id === activeId) || null;
   const messages = activeChat?.messages || [];
-  const landing = messages.length === 0;
-  const generating = Boolean(generatingId && generatingId === activeId);
+  const generating = Boolean(generatingId);
   const selectedModel = MODELS.find(item => item.id === model) || MODELS[0];
-  const filteredChats = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return [...chats].filter(chat => !q || chat.title.toLowerCase().includes(q) || chat.messages.some(m => m.content.toLowerCase().includes(q)))
+
+  const groupedChats = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = [...chats]
+      .filter(chat => !query || chat.title.toLowerCase().includes(query) || chat.messages.some(message => message.content.toLowerCase().includes(query)))
       .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+    const groups = [];
+    for (const chat of filtered) {
+      const label = historyGroup(chat.updatedAt || chat.createdAt);
+      let group = groups.find(item => item.label === label);
+      if (!group) {
+        group = { label, items: [] };
+        groups.push(group);
+      }
+      group.items.push(chat);
+    }
+    return groups;
   }, [chats, search]);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0, 80))); } catch { /* Storage can be unavailable. */ }
+    try {
+      localStorage.setItem(CHAT_STORAGE, JSON.stringify([...chats]
+        .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+        .slice(0, MAX_CHATS)));
+    } catch { /* The chat still works when browser storage is disabled. */ }
   }, [chats]);
 
   useEffect(() => {
+    try {
+      if (activeId) localStorage.setItem(ACTIVE_STORAGE, activeId);
+      else localStorage.removeItem(ACTIVE_STORAGE);
+    } catch { /* Ignore unavailable storage. */ }
+  }, [activeId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_STORAGE, dark ? 'dark' : 'light');
+    } catch { /* Ignore unavailable storage. */ }
+  }, [dark]);
+
+  useEffect(() => {
     let alive = true;
-    fetch('/api/health').then(response => response.json()).then(data => {
-      if (alive) setHealth({ ...data, loaded: true });
-    }).catch(() => {
-      if (alive) setHealth({ loaded: true, configured: false, offline: true, provider: 'Groq' });
-    });
+    fetch('/api/health')
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('API health check failed')))
+      .then(data => { if (alive) setHealth({ ...data, loaded: true }); })
+      .catch(() => { if (alive) setHealth({ loaded: true, configured: false, offline: true }); });
     return () => { alive = false; };
   }, []);
 
   useEffect(() => {
-    if (landing && !reducedMotion) {
-      gsap.fromTo('.hero-animate', { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: .65, stagger: .09, ease: 'power3.out', clearProps: 'all' });
-    }
-  }, [landing, activeId, reducedMotion]);
+    if (messages.length) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, generatingId]);
 
   useEffect(() => {
-    if (!landing) messagesEndRef.current?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'end' });
-  }, [messages, landing, reducedMotion]);
+    if (!modelMenuOpen) return undefined;
+    const handlePointer = event => {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target)) setModelMenuOpen(false);
+    };
+    const handleKey = event => { if (event.key === 'Escape') setModelMenuOpen(false); };
+    document.addEventListener('pointerdown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [modelMenuOpen]);
 
-  const notify = useCallback((message) => {
+  useEffect(() => {
+    const handleKeys = event => {
+      const modifier = event.metaKey || event.ctrlKey;
+      if (modifier && event.shiftKey && event.key.toLowerCase() === 'o') {
+        event.preventDefault();
+        newChat();
+      }
+      if (modifier && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+        setMobileNavOpen(true);
+        window.setTimeout(() => document.querySelector('.sidebar-search-input')?.focus(), 50);
+      }
+    };
+    window.addEventListener('keydown', handleKeys);
+    return () => window.removeEventListener('keydown', handleKeys);
+  });
+
+  const notify = useCallback(message => {
     setToast(message);
     window.clearTimeout(notify.timer);
-    notify.timer = window.setTimeout(() => setToast(''), 2300);
+    notify.timer = window.setTimeout(() => setToast(''), 2000);
   }, []);
 
-  const newChat = useCallback(() => {
+  const startNewChat = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     setGeneratingId(null);
-    const id = uid();
-    setChats(previous => [{ id, title: 'New conversation', createdAt: timestamp(), updatedAt: timestamp(), messages: [] }, ...previous]);
-    setActiveId(id);
+    setActiveId(null);
     setDraft('');
     setAttachment(null);
-    setMobileSidebar(false);
-    setModelOpen(false);
-    setTimeout(() => textareaRef.current?.focus(), 60);
+    setModelMenuOpen(false);
+    setMobileNavOpen(false);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    window.setTimeout(() => textareaRef.current?.focus(), 40);
   }, []);
 
-  const selectChat = useCallback((id) => {
+  const openChat = useCallback(id => {
     abortRef.current?.abort();
     abortRef.current = null;
     setGeneratingId(null);
     setActiveId(id);
-    setMobileSidebar(false);
-    setModelOpen(false);
+    setMobileNavOpen(false);
+    setModelMenuOpen(false);
   }, []);
 
-  const deleteChat = (id) => {
+  const removeChat = useCallback((event, id) => {
+    event.stopPropagation();
     setChats(previous => previous.filter(chat => chat.id !== id));
     if (activeId === id) setActiveId(null);
-    notify('Conversation removed');
-  };
-  const sendMessage = useCallback(async (override) => {
-    const text = (override ?? draft).trim();
-    if ((!text && !attachment) || generatingId) return;
-    const id = activeId || uid();
-    const userText = text || `Please analyze the attached text file: ${attachment?.name || 'file'}`;
+    notify('Chat deleted');
+  }, [activeId, notify]);
+
+  const copyToClipboard = useCallback(async (text, label = 'Copied') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify(label);
+    } catch {
+      notify('Clipboard unavailable in this browser');
+    }
+  }, [notify]);
+
+  const sendMessage = useCallback(async override => {
+    const text = String(override ?? draft).trim();
+    if ((!text && !attachment) || abortRef.current) return;
+    const chatId = activeId || uid();
+    const createdAt = now();
     const userMessage = {
-      id: uid(), role: 'user', content: userText, createdAt: timestamp(),
-      fileName: attachment?.name || null, fileContent: attachment?.content || null
+      id: uid(),
+      role: 'user',
+      content: text || `Please help me with the attached text file: ${attachment?.name || 'attachment'}`,
+      createdAt,
+      fileName: attachment?.name || null,
+      fileContent: attachment?.content || null
     };
-    const assistantMessage = { id: uid(), role: 'assistant', content: '', createdAt: timestamp() };
-    const previousChat = chats.find(chat => chat.id === id);
-    const priorMessages = previousChat?.messages || [];
+    const assistantMessage = { id: uid(), role: 'assistant', content: '', createdAt: now() };
+    const previousChat = chats.find(chat => chat.id === chatId);
+    const previousMessages = previousChat?.messages || [];
+    const title = previousChat?.title && previousMessages.length
+      ? previousChat.title
+      : shortTitle(userMessage.content);
+
     setChats(previous => {
-      const current = previous.find(chat => chat.id === id);
-      const updated = current
-        ? previous.map(chat => chat.id !== id ? chat : {
-            ...chat,
-            title: chat.messages.length ? chat.title : userText.slice(0, 48) + (userText.length > 48 ? '…' : ''),
-            updatedAt: timestamp(), messages: [...chat.messages, userMessage, assistantMessage]
-          })
-        : [{ id, title: userText.slice(0, 48) + (userText.length > 48 ? '…' : ''), createdAt: timestamp(), updatedAt: timestamp(), messages: [userMessage, assistantMessage] }, ...previous];
-      return updated;
+      const existing = previous.find(chat => chat.id === chatId);
+      if (existing) {
+        return previous.map(chat => chat.id === chatId
+          ? { ...chat, title, updatedAt: now(), messages: [...chat.messages, userMessage, assistantMessage] }
+          : chat);
+      }
+      return [{ id: chatId, title, createdAt, updatedAt: now(), messages: [userMessage, assistantMessage] }, ...previous];
     });
-    setActiveId(id);
+    setActiveId(chatId);
     setDraft('');
     setAttachment(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    setGeneratingId(id);
+
     const controller = new AbortController();
     abortRef.current = controller;
-    const history = [...priorMessages, userMessage].slice(-30).map(message => ({
+    setGeneratingId(chatId);
+    const history = [...previousMessages, userMessage].slice(-32).map(message => ({
       role: message.role,
       content: message.fileContent
         ? `${message.content}\n\n[Attached text file: ${message.fileName}]\n--- FILE CONTENT START ---\n${message.fileContent}\n--- FILE CONTENT END ---`
         : message.content
     }));
+
+    const setAssistantContent = (content) => {
+      setChats(previous => previous.map(chat => chat.id !== chatId ? chat : ({
+        ...chat,
+        updatedAt: now(),
+        messages: chat.messages.map(message => message.id === assistantMessage.id ? { ...message, content } : message)
+      })));
+    };
+
     try {
       const response = await fetch('/api/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages: history }), signal: controller.signal
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: history }),
+        signal: controller.signal
       });
+
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed (${response.status})`);
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Request failed (${response.status})`);
       }
-      if (!response.body) throw new Error('This browser does not support response streaming.');
+      if (!response.body) throw new Error('Streaming is not supported by this browser.');
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let fullText = '';
-      const consumeLine = (line) => {
-        if (!line.startsWith('data:')) return;
-        const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') return;
-        try {
-          const payload = JSON.parse(data);
-          if (payload.error) throw new Error(payload.error);
-          if (typeof payload.delta === 'string') fullText += payload.delta;
-        } catch (error) {
-          if (error instanceof SyntaxError) return;
-          throw error;
-        }
+      let doneSignal = false;
+
+      const processEvent = eventText => {
+        const data = eventText.split('\n')
+          .filter(line => line.startsWith('data:'))
+          .map(line => line.slice(5).trim())
+          .join('\n');
+        if (!data) return;
+        if (data === '[DONE]') { doneSignal = true; return; }
+        let payload;
+        try { payload = JSON.parse(data); } catch { return; }
+        if (payload.error) throw new Error(payload.error);
+        if (typeof payload.delta === 'string') fullText += payload.delta;
+        if (payload.done) doneSignal = true;
       };
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) consumeLine(line.trim());
-        setChats(previous => previous.map(chat => chat.id !== id ? chat : {
-          ...chat, updatedAt: timestamp(), messages: chat.messages.map(message => message.id === assistantMessage.id ? { ...message, content: fullText } : message)
-        }));
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() || '';
+        for (const eventText of events) {
+          processEvent(eventText);
+          setAssistantContent(fullText);
+        }
       }
-      if (buffer.trim()) consumeLine(buffer.trim());
-      setChats(previous => previous.map(chat => chat.id !== id ? chat : {
-        ...chat, updatedAt: timestamp(), messages: chat.messages.map(message => message.id === assistantMessage.id ? { ...message, content: fullText || 'I did not receive a response. Please try again.' } : message)
-      }));
+      if (buffer.trim()) processEvent(buffer);
+      setAssistantContent(fullText || (doneSignal ? 'I did not receive any text. Please try again.' : 'The response ended early. Please try again.'));
     } catch (error) {
       if (error?.name !== 'AbortError') {
-        const message = `**Could not complete the response**\n\n${error?.message || 'An unexpected error occurred.'}`;
-        setChats(previous => previous.map(chat => chat.id !== id ? chat : {
-          ...chat, messages: chat.messages.map(item => item.id === assistantMessage.id ? { ...item, content: message } : item)
-        }));
+        const message = `**Could not complete the response**\n\n${error?.message || 'Something went wrong. Please try again.'}`;
+        setAssistantContent(message);
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
-      setGeneratingId(current => current === id ? null : current);
+      setGeneratingId(current => current === chatId ? null : current);
     }
-  }, [activeId, attachment, chats, draft, generatingId, model]);
+  }, [activeId, attachment, chats, draft, model]);
 
-  const stopGeneration = () => { abortRef.current?.abort(); abortRef.current = null; setGeneratingId(null); notify('Generation stopped'); };
+  const stopGeneration = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setGeneratingId(null);
+    notify('Response stopped');
+  }, [notify]);
 
-  const onComposerKeyDown = (event) => {
+  const onComposerKeyDown = event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault(); sendMessage();
+      event.preventDefault();
+      sendMessage();
     }
   };
 
-  const handleFile = async (event) => {
+  const handleFile = async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    const supported = /\.(txt|md|csv|json|html|log)$/i.test(file.name);
-    if (!supported) { notify('Choose a TXT, MD, CSV, JSON, HTML, or LOG file'); return; }
-    if (file.size > 180 * 1024) { notify('Text attachments must be under 180 KB'); return; }
-    try { setAttachment({ name: file.name, content: await file.text() }); }
-    catch { notify('Could not read this file'); }
+    if (!/\.(txt|md|csv|json|html|log)$/i.test(file.name)) {
+      notify('Attach a TXT, MD, CSV, JSON, HTML, or LOG file');
+      return;
+    }
+    if (file.size > 180 * 1024) {
+      notify('Text files must be smaller than 180 KB');
+      return;
+    }
+    try {
+      const content = await file.text();
+      setAttachment({ name: file.name, content });
+    } catch {
+      notify('Could not read this file');
+    }
   };
 
-  const copyText = async (text) => {
-    try { await navigator.clipboard.writeText(text); notify('Copied to clipboard'); }
-    catch { notify('Clipboard access is unavailable'); }
-  };
-
-  const exportChat = () => {
+  const exportChat = useCallback(() => {
     if (!activeChat) return;
-    const content = `# ${activeChat.title}\n\n` + activeChat.messages.map(message => `## ${message.role === 'user' ? 'You' : 'Axiom'}\n\n${message.content}`).join('\n\n---\n\n');
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
-    link.download = `${activeChat.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'axiom-chat'}.md`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    notify('Conversation exported');
+    const body = `# ${activeChat.title}\n\n` + activeChat.messages
+      .map(message => `## ${message.role === 'user' ? 'You' : 'Axiom'}\n\n${message.content}`)
+      .join('\n\n---\n\n');
+    const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${activeChat.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'axiom-chat'}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    notify('Chat exported');
+  }, [activeChat, notify]);
+
+  const clearSearch = () => {
+    setSearch('');
+    setSearchOpen(false);
   };
 
-  return <div ref={shellRef} className={`app-shell ${dark ? 'theme-dark' : 'theme-light'}`}>
-    <AnimatePresence>{mobileSidebar && <motion.button className="mobile-scrim" aria-label="Close navigation" onClick={() => setMobileSidebar(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />}</AnimatePresence>
-    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'} ${mobileSidebar ? 'sidebar-mobile-visible' : ''}`}>
-      <div className="brand-row"><div className="brand-mark"><Sparkles size={17} strokeWidth={2.4}/></div>{sidebarOpen && <><span className="brand-name">axiom<span>.</span></span><button className="quiet-icon sidebar-collapse" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar"><PanelLeftClose size={17}/></button></>}</div>
-      {!sidebarOpen && <button className="quiet-icon sidebar-expand" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar"><Menu size={18}/></button>}
-      <button className="new-chat-button" onClick={newChat}><Plus size={17}/>{sidebarOpen && <span>New conversation</span>}<kbd>⌘ K</kbd></button>
-      {sidebarOpen && <div className="sidebar-search"><Search size={15}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search chats" aria-label="Search conversations"/><kbd>⌘F</kbd></div>}
-      {sidebarOpen && <div className="history"><div className="section-label">YOUR HISTORY</div>{filteredChats.length ? filteredChats.map(chat => <div key={chat.id} className={`history-item ${activeId === chat.id ? 'history-active' : ''}`}><button className="history-select" onClick={() => selectChat(chat.id)} title={chat.title}><MessageSquare size={15}/><span>{chat.title}</span></button><button className="history-delete" onClick={() => deleteChat(chat.id)} aria-label={`Delete ${chat.title}`}><Trash2 size={13}/></button></div>) : <div className="history-empty">{search ? 'No matching conversations' : 'Your conversations will appear here.'}</div>}</div>}
-      <div className="sidebar-bottom">{sidebarOpen && <div className={`api-status ${health.configured ? 'api-ready' : 'api-pending'}`}><span className="status-dot"/><span>{health.configured ? 'Groq connected' : health.offline ? 'API unavailable' : 'API setup required'}</span><button onClick={() => setSettingsOpen(v => !v)} aria-label="Open settings"><Settings2 size={14}/></button></div>}<div className="profile-row"><div className="profile-avatar">A</div>{sidebarOpen && <div className="profile-copy"><strong>Personal workspace</strong><span>Private on this device</span></div>}<button className="quiet-icon profile-settings" onClick={() => setSettingsOpen(v => !v)} aria-label="Settings"><Settings2 size={17}/></button></div></div>
-    </aside>
-    <main className="main-panel">
-      <header className="topbar"><div className="topbar-left"><button className="quiet-icon mobile-menu" onClick={() => setMobileSidebar(v => !v)} aria-label="Open navigation"><Menu size={19}/></button>{!sidebarOpen && <button className="quiet-icon desktop-menu" onClick={() => setSidebarOpen(true)} aria-label="Expand navigation"><Menu size={18}/></button>}<div className="workspace-label"><span>Workspace</span><span className="crumb-separator">/</span><strong>{activeChat?.title || 'New conversation'}</strong></div></div><div className="topbar-right"><div className="model-picker"><button className="model-trigger" onClick={() => setModelOpen(v => !v)} aria-expanded={modelOpen}><span className="model-orb"><Zap size={14}/></span><span>{selectedModel.name}</span><ChevronDown size={14}/></button><AnimatePresence>{modelOpen && <motion.div className="model-menu" initial={{ opacity: 0, y: 7, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }}><div className="model-menu-label">SELECT A MODEL</div>{MODELS.map(item => <button key={item.id} className={`model-option ${model === item.id ? 'model-option-active' : ''}`} onClick={() => { setModel(item.id); setModelOpen(false); }}><span className="model-option-icon"><Sparkles size={15}/></span><span className="model-option-text"><strong>{item.name}</strong><small>{item.description}</small></span>{model === item.id && <Check size={16}/>}</button>)}</motion.div>}</AnimatePresence></div><button className="quiet-icon theme-toggle" onClick={() => setDark(v => !v)} aria-label={`Switch to ${dark ? 'light' : 'dark'} theme`}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button>{activeChat && messages.length > 0 && <button className="export-button" onClick={exportChat}><ArrowDown size={14}/> Export</button>}</div></header>
+  const showLanding = !activeChat || messages.length === 0;
+  const lastAssistantIndex = messages.reduce((last, message, index) => message.role === 'assistant' ? index : last, -1);
 
-      <section className={`conversation-area ${landing ? 'landing-area' : 'messages-area'}`}>
-        {landing ? <div className="landing-content">
-          <motion.div className="hero-badge hero-animate" initial={false}><span className="badge-pulse"/><span>AN INTELLIGENT WORKSPACE</span></motion.div>
-          <h1 className="hero-heading"><span className="hero-animate">Ideas start here.</span><span className="hero-gradient hero-animate">Clarity follows.</span></h1>
-          <p className="hero-subtitle hero-animate">A thoughtful space to think bigger, solve problems, and turn your next idea into something real.</p>
-          <div className="starter-grid">{STARTERS.map((item, index) => <motion.button key={item.title} className="starter-card hero-animate" onClick={() => { setDraft(item.text); textareaRef.current?.focus(); }} initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18 + index * .07, duration: .42 }} whileHover={reducedMotion ? undefined : { y: -3 }}><span className={`starter-icon starter-icon-${index}`}>{item.icon}</span><span className="starter-title">{item.title}</span><span className="starter-description">{item.text}</span><span className="starter-arrow">↗</span></motion.button>)}</div>
-          <div className="landing-note hero-animate"><Sparkles size={14}/><span>Ask anything. Refine as you go.</span></div>
-        </div> : <div className="messages-wrap">{messages.map((message, index) => <motion.article key={message.id} className={`message-row ${message.role === 'user' ? 'user-message' : 'assistant-message'}`} initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .23 }}><div className={`message-avatar ${message.role === 'assistant' ? 'assistant-avatar' : 'user-avatar'}`}>{message.role === 'assistant' ? <Sparkles size={15}/> : 'Y'}</div><div className="message-main"><div className="message-meta"><strong>{message.role === 'assistant' ? 'Axiom' : 'You'}</strong><span>{message.role === 'assistant' ? 'AI assistant' : message.fileName || 'Message'}</span></div>{message.role === 'user' ? <div className="user-content">{message.fileName && <div className="message-file"><FileText size={14}/>{message.fileName}</div>}{message.content}</div> : <div className="assistant-content">{message.content ? <Markdown content={message.content}/> : <div className="thinking-state"><span/><span/><span/> Thinking through your question…</div>}</div>}{message.role === 'assistant' && message.content && !(generating && index === messages.length - 1) && <div className="message-actions"><button onClick={() => copyText(message.content)}><Copy size={13}/> Copy response</button></div>}</div></motion.article>)}<div ref={messagesEndRef}/></div>}
-      </section>
+  return (
+    <div className={`app-shell ${dark ? 'theme-dark' : 'theme-light'}`}>
+      {mobileNavOpen && <button className="mobile-scrim" aria-label="Close sidebar" onClick={() => setMobileNavOpen(false)} />}
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'} ${mobileNavOpen ? 'sidebar-mobile-open' : ''}`}>
+        <div className="sidebar-top">
+          <button className="brand" type="button" onClick={startNewChat} aria-label="Axiom home">
+            <span className="brand-icon"><Sparkles size={17} /></span>
+            {sidebarOpen && <span className="brand-word">axiom<span>.</span></span>}
+          </button>
+          {sidebarOpen && <button className="icon-button sidebar-toggle" type="button" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={18} /></button>}
+        </div>
 
-      <footer className="composer-dock"><div className={`composer ${attachment ? 'composer-has-attachment' : ''}`}><AnimatePresence>{attachment && <motion.div className="attachment-chip" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><FileText size={15}/><span>{attachment.name}</span><button onClick={() => setAttachment(null)} aria-label="Remove attachment"><X size={14}/></button></motion.div>}</AnimatePresence><textarea ref={textareaRef} value={draft} rows={1} placeholder="Message Axiom…" aria-label="Message Axiom" onChange={event => { setDraft(event.target.value); event.target.style.height = 'auto'; event.target.style.height = `${Math.min(event.target.scrollHeight, 190)}px`; }} onKeyDown={onComposerKeyDown}/><div className="composer-bottom"><div className="composer-tools"><input ref={fileRef} type="file" hidden accept=".txt,.md,.csv,.json,.html,.log,text/plain,text/markdown,text/csv,application/json" onChange={handleFile}/><button className="composer-tool" onClick={() => fileRef.current?.click()} aria-label="Attach text file"><Paperclip size={17}/><span>Attach</span></button><span className="tool-divider"/><span className="composer-mode"><span className="status-dot"/> Groq-powered AI</span></div><div className="composer-actions">{generating ? <button className="send-button stop-button" onClick={stopGeneration} aria-label="Stop response"><Square size={14} fill="currentColor"/></button> : <button className="send-button" onClick={() => sendMessage()} disabled={!draft.trim() && !attachment} aria-label="Send message"><Send size={16}/></button>}</div></div></div><p className="composer-disclaimer">Axiom can make mistakes. Verify important information.</p></footer>
-    </main>
+        {!sidebarOpen && <button className="icon-button expand-sidebar" type="button" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar"><Menu size={18} /></button>}
 
-    <AnimatePresence>{settingsOpen && <><motion.button className="modal-scrim" aria-label="Close settings" onClick={() => setSettingsOpen(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}/><motion.section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }}><header><div><span className="settings-eyebrow">WORKSPACE</span><h2 id="settings-title">Settings</h2></div><button className="quiet-icon" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={18}/></button></header><section className="settings-block"><div className="settings-block-title"><Activity size={17}/><div><strong>Groq connection</strong><span>Server-side API configuration</span></div><span className={`settings-status ${health.configured ? 'connected' : ''}`}>{health.configured ? 'Connected' : 'Not set up'}</span></div><p>{health.configured ? 'The server reports that the Groq API key is configured.' : 'Add GROQ_API_KEY in your hosting provider’s environment variables, then redeploy. Keep the key on the server only.'}</p><div className="settings-row"><span>Provider</span><strong>Groq Cloud</strong></div><div className="settings-row"><span>Model</span><strong>{selectedModel.name}</strong></div><button className="settings-test" onClick={() => fetch('/api/health').then(response => response.json()).then(data => { setHealth({ ...data, loaded: true }); notify(data.configured ? 'Groq is configured' : 'GROQ_API_KEY is not configured'); }).catch(() => notify('API server is unreachable'))}>Test connection <ArrowUp size={14}/></button></section><section className="settings-block"><div className="settings-block-title"><span className="theme-icon"><Sun size={16}/></span><div><strong>Appearance</strong><span>Choose your workspace theme</span></div></div><div className="theme-choices"><button className={!dark ? 'selected' : ''} onClick={() => setDark(false)}><Sun size={15}/> Light {!dark && <Check size={14}/>}</button><button className={dark ? 'selected' : ''} onClick={() => setDark(true)}><Moon size={15}/> Dark {dark && <Check size={14}/>}</button></div></section><p className="settings-footnote"><Check size={14}/> Your API key is handled by the backend and never sent to the browser.</p></motion.section></>}</AnimatePresence>
-    <AnimatePresence>{toast && <motion.div className="toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 7 }}><Check size={15}/>{toast}</motion.div>}</AnimatePresence>
-  </div>;
+        <div className="sidebar-actions">
+          <button className="new-chat" type="button" onClick={startNewChat} title="New chat">
+            <Plus size={17} />
+            {sidebarOpen && <><span>New chat</span><kbd>Ctrl Shift O</kbd></>}
+          </button>
+          {sidebarOpen && (
+            <button className="search-chat" type="button" onClick={() => { setSearchOpen(value => !value); setSearch(''); }}>
+              <Search size={16} /><span>Search chats</span><kbd>Ctrl K</kbd>
+            </button>
+          )}
+        </div>
+
+        {sidebarOpen && (
+          <div className="history-panel">
+            {searchOpen && <div className="sidebar-search-box"><Search size={15} /><input className="sidebar-search-input" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search your chats" autoFocus /><button className="tiny-icon" onClick={clearSearch} aria-label="Clear search"><X size={14} /></button></div>}
+            <div className="history-scroll">
+              {groupedChats.length ? groupedChats.map(group => (
+                <section className="history-group" key={group.label}>
+                  <div className="history-label">{group.label}</div>
+                  {group.items.map(chat => (
+                    <div key={chat.id} className={`history-item ${chat.id === activeId ? 'history-item-active' : ''}`}>
+                      <button type="button" className="history-open" onClick={() => openChat(chat.id)} title={chat.title}>
+                        <span>{chat.title}</span>
+                      </button>
+                      <button type="button" className="history-delete" onClick={event => removeChat(event, chat.id)} aria-label={`Delete ${chat.title}`} title="Delete chat"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </section>
+              )) : (
+                <div className="empty-history">{search ? 'No matching chats.' : 'Your recent chats will appear here.'}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="sidebar-bottom">
+          {sidebarOpen && <div className="provider-status"><span className={`status-dot ${health.configured ? 'status-online' : ''}`} /><span>{health.configured ? 'Groq ready' : health.offline ? 'API unavailable' : 'Connecting to Groq'}</span></div>}
+          <div className="sidebar-footer">
+            <div className="user-avatar">A</div>
+            {sidebarOpen && <div className="account-copy"><strong>Axiom</strong><span>Chats saved on this device</span></div>}
+            <button className="icon-button footer-theme" type="button" onClick={() => setDark(value => !value)} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} title={dark ? 'Light mode' : 'Dark mode'}>{dark ? <Sun size={17} /> : <Moon size={17} />}</button>
+          </div>
+        </div>
+      </aside>
+
+      <main className="main-panel">
+        <header className="topbar">
+          <div className="topbar-start">
+            <button className="icon-button mobile-menu" type="button" onClick={() => setMobileNavOpen(value => !value)} aria-label="Open navigation"><Menu size={20} /></button>
+            {!sidebarOpen && <button className="icon-button desktop-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar"><PanelLeftClose size={18} /></button>}
+            <div className="model-menu-wrap" ref={modelMenuRef}>
+              <button className="model-trigger" type="button" onClick={() => setModelMenuOpen(value => !value)} aria-expanded={modelMenuOpen}>
+                <span>{selectedModel.name}</span><ChevronDown size={15} />
+              </button>
+              {modelMenuOpen && <div className="model-dropdown">
+                <div className="dropdown-heading">Choose a model</div>
+                {MODELS.map(item => <button key={item.id} className={`model-choice ${model === item.id ? 'model-choice-active' : ''}`} type="button" onClick={() => { setModel(item.id); setModelMenuOpen(false); }}>
+                  <span className="model-choice-icon"><Zap size={15} /></span>
+                  <span className="model-choice-copy"><strong>{item.name}</strong><small>{item.detail}</small></span>
+                  {model === item.id && <Check size={16} />}
+                </button>)}
+              </div>}
+            </div>
+          </div>
+          <div className="topbar-end">
+            {activeChat && messages.length > 0 && <button className="topbar-action" type="button" onClick={exportChat} title="Export this chat"><FileText size={15} /><span>Export</span></button>}
+          </div>
+        </header>
+
+        <section className={`conversation-area ${showLanding ? 'conversation-landing' : 'conversation-messages'}`}>
+          {showLanding ? (
+            <div className="welcome">
+              <div className="welcome-mark"><Sparkles size={20} /></div>
+              <h1>What can I help with?</h1>
+              <p>Ask a question, explore an idea, or get something done.</p>
+              <div className="prompt-suggestions">
+                <button type="button" onClick={() => setDraft('Explain a complex topic in simple terms, with a practical example.')}><MessageSquare size={15} /><span>Explain a concept</span></button>
+                <button type="button" onClick={() => setDraft('Help me brainstorm practical ideas and choose the strongest one.')}><Sparkles size={15} /><span>Brainstorm ideas</span></button>
+                <button type="button" onClick={() => setDraft('Help me plan the next steps for a project.')}><Plus size={15} /><span>Plan a project</span></button>
+              </div>
+            </div>
+          ) : (
+            <div className="messages-wrap">
+              {messages.map((message, index) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  onCopy={text => copyToClipboard(text, 'Response copied')}
+                  isLastAssistant={index === lastAssistantIndex}
+                  isGenerating={generating && generatingId === activeId}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </section>
+
+        <footer className="composer-dock">
+          <div className={`composer ${attachment ? 'composer-with-attachment' : ''}`}>
+            {attachment && <div className="attachment-pill"><FileText size={15} /><span>{attachment.name}</span><button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment"><X size={14} /></button></div>}
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              rows={1}
+              placeholder="Message Axiom"
+              aria-label="Message Axiom"
+              onChange={event => {
+                setDraft(event.target.value);
+                event.target.style.height = 'auto';
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
+              }}
+              onKeyDown={onComposerKeyDown}
+            />
+            <div className="composer-toolbar">
+              <div className="composer-tools">
+                <input ref={fileRef} type="file" hidden accept=".txt,.md,.csv,.json,.html,.log,text/plain,text/markdown,text/csv,application/json" onChange={handleFile} />
+                <button type="button" className="attach-button" onClick={() => fileRef.current?.click()} aria-label="Attach a text file" title="Attach a text file"><Plus size={19} /></button>
+                <span className="composer-hint">Attach text</span>
+              </div>
+              <div className="composer-submit">
+                {generating && generatingId === activeId
+                  ? <button className="send-button stop-button" type="button" onClick={stopGeneration} aria-label="Stop generating" title="Stop generating"><CircleStop size={19} /></button>
+                  : <button className="send-button" type="button" onClick={() => sendMessage()} disabled={!draft.trim() && !attachment} aria-label="Send message" title="Send message"><ArrowUp size={19} /></button>}
+              </div>
+            </div>
+          </div>
+          <div className="composer-disclaimer">Axiom can make mistakes. Check important information.</div>
+        </footer>
+      </main>
+
+      {toast && <div className="toast" role="status"><Check size={15} />{toast}</div>}
+    </div>
+  );
 }
