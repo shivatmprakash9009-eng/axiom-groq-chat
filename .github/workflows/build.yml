@@ -2,7 +2,7 @@ name: Build Axiom
 
 on:
   push:
-    branches: [main, release/axiom-v1]
+    branches: [main, release/axiom-v1, feature/nextjs-saas-migration]
   pull_request:
     branches: [main]
 
