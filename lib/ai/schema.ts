@@ -12,6 +12,7 @@ export const chatRequestSchema = z
     style: z.enum(["default", "concise", "detailed", "code"]).optional(),
     customSystemPrompt: z.string().max(2000, "Custom instructions cannot exceed 2000 characters.").optional(),
     temperature: z.number().min(0).max(2).optional(),
+    guestMode: z.boolean().optional().default(false),
   })
   .superRefine((value, context) => {
     const total = value.messages.reduce((sum, message) => sum + message.content.length, 0);
