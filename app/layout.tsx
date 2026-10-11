@@ -7,12 +7,12 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Axiom — Think clearly. Move faster.",
+  title: "TIWAT — Think clearly. Move faster.",
   description: "A calm, intelligent workspace for your ideas, research, and work.",
-  applicationName: "Axiom",
+  applicationName: "TIWAT",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://axiom-groq-chat.vercel.app"),
   openGraph: {
-    title: "Axiom — Think clearly. Move faster.",
+    title: "TIWAT — Think clearly. Move faster.",
     description: "A calm, intelligent workspace for your ideas, research, and work.",
     type: "website",
   },
