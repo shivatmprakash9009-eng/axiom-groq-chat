@@ -1,5 +1,5 @@
-import { ChatWorkspace } from "@/components/chat-workspace";
 import { ChatEntry } from "@/components/auth/chat-entry";
+import { ChatWorkspace } from "@/components/chat-workspace";
 
 export default async function ChatPage({
   searchParams,
