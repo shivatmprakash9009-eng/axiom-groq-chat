@@ -1,8 +1,8 @@
 "use client";
 
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
-import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 export function AuthForm({ mode }: { mode: "signin" | "signup" | "reset" }) {
