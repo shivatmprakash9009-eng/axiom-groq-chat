@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { updatePassword } from "@/app/login/actions";
+import { PasswordResetForm } from "@/components/auth/password-reset-form";
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -16,13 +16,7 @@ export default async function ResetPasswordPage({
           <h2>Choose a new password</h2>
           <p className="auth-form-subtitle">Use at least 8 characters for your new password.</p>
           {error && <div className="auth-alert" role="alert">The reset session may be invalid or expired. Request another password reset email.</div>}
-          <form className="auth-form" action={updatePassword}>
-            <label htmlFor="password">New password</label>
-            <input id="password" name="password" type="password" minLength={8} autoComplete="new-password" required />
-            <label htmlFor="confirmPassword">Confirm new password</label>
-            <input id="confirmPassword" name="confirmPassword" type="password" minLength={8} autoComplete="new-password" required />
-            <button className="auth-primary-button" type="submit">Update password <span aria-hidden="true">→</span></button>
-          </form>
+          <PasswordResetForm />
           <p className="auth-switch"><Link href="/login">Back to sign in</Link></p>
         </div>
       </section>
