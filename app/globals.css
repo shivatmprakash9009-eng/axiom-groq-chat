@@ -949,7 +949,7 @@ textarea:focus-visible,
 .hidden-file-input {
   display: none;
 }
-@media (max-width: 1024px) {
+@media (max-width: 1024px), (hover: none) and (pointer: coarse) {
   .app-shell {
     min-height: 100dvh;
     overflow: hidden;
