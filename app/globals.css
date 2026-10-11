@@ -998,6 +998,18 @@ textarea:focus-visible,
       box-shadow 0.25s ease,
       visibility 0s linear 0s;
   }
+  /*
+   * A closed mobile drawer must not expose the desktop collapsed rail or its
+   * footer labels. The expanded footer rules below apply only while open.
+   */
+  .sidebar.is-collapsed:not(.mobile-open) .sidebar-footer-text,
+  .sidebar.is-collapsed:not(.mobile-open) .sidebar-footer > button,
+  .sidebar.is-collapsed:not(.mobile-open) .sidebar-copy {
+    display: none !important;
+  }
+  .sidebar.is-collapsed:not(.mobile-open) .sidebar-footer {
+    display: none !important;
+  }
   /* Mobile uses a full-width drawer, never the desktop compact rail. */
   .sidebar.is-collapsed .sidebar-brand-row {
     justify-content: space-between;
