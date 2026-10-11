@@ -1,6 +1,6 @@
-# Axiom AI — Autonomous Intelligent Workspace
+# TIWAT — Autonomous Intelligent Workspace
 
-Axiom AI is a production-grade, calm, and responsive AI workspace built on Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS v4, Radix primitives, Framer Motion, TanStack Query, Zustand, Zod, and Biome.
+TIWAT is a production-grade, calm, and responsive AI workspace built on Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS v4, Radix primitives, Framer Motion, TanStack Query, Zustand, Zod, and Biome.
 
 ## Highlights & Capabilities
 
@@ -85,6 +85,6 @@ npm run build
 ## Security & Operational Principles
 
 - **No Client Secrets**: AI provider keys and model configurations are strictly server-side and never exposed in browser bundles or client requests.
-- **Fail-Safe Operation**: When no provider keys are configured, Axiom returns clear, non-leaking diagnostic guidance.
+- **Fail-Safe Operation**: When no provider keys are configured, TIWAT returns clear, non-leaking diagnostic guidance.
 - **Rate Limiting**: Requests are metered at 30 requests/minute per client IP via the sliding window limiter.
 - **Sanitized Inputs**: Requests are bounded to 50 messages and 150,000 characters total context size to prevent denial-of-service and memory exhaustion.
