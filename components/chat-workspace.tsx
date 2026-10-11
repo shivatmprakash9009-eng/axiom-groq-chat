@@ -875,9 +875,10 @@ export function ChatWorkspace() {
               type="button"
               className="icon-button desktop-sidebar-toggle"
               onClick={toggleSidebar}
-              aria-label="Toggle sidebar"
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
-              <PanelLeftClose size={17} />
+              <PanelLeftClose size={17} className={!sidebarOpen ? "rotate-180 transition-transform" : "transition-transform"} />
             </button>
             <div className="topbar-title">{activeChat?.title || "Axiom Workspace"}</div>
             <ChevronDown size={14} className="title-caret" />
