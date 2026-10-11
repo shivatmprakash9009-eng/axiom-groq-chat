@@ -100,8 +100,7 @@ function titleFrom(text: string) {
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
+    const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -161,13 +160,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     let cancelled = false;
     if (guestMode) {
       setChats([]);
-      setUserId(null);
       setHydrated(true);
     } else {
       try {
         const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
           if (cancelled) return;
-          setUserId(user?.uid ?? null);
           setHydrated(true);
         }, () => {
           if (!cancelled) setHydrated(true);
@@ -292,7 +289,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         headers: {
           "Content-Type": "application/json",
           ...(!guestMode && getFirebaseAuth().currentUser
-            ? { Authorization: `Bearer ${await getFirebaseAuth().currentUser!.getIdToken()}` }
+            ? { Authorization: `Bearer ${await getFirebaseAuth().currentUser?.getIdToken()}` }
             : {}),
         },
         cache: "no-store",
