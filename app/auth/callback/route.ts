@@ -13,5 +13,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/chat", requestUrl.origin));
+  const next = requestUrl.searchParams.get("next");
+  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/chat";
+  return NextResponse.redirect(new URL(destination, requestUrl.origin));
 }
