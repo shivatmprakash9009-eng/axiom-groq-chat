@@ -19,12 +19,20 @@ export function GoogleSignInButton() {
       router.replace("/chat");
       router.refresh();
     } catch (caught) {
-      const code = typeof caught === "object" && caught && "code" in caught ? String(caught.code) : "";
-      setError(code === "auth/popup-closed-by-user"
+      const code = typeof caught === "object" && caught && "code" in caught ? String(caught.code) : "unknown";
+      const detail = caught instanceof Error ? caught.message : "No additional error details.";
+      const friendly = code === "auth/popup-closed-by-user"
         ? "Google sign-in was cancelled."
         : code === "auth/unauthorized-domain"
           ? "This domain is not authorized in Firebase Authentication settings."
-          : "Google sign-in could not complete. Check that Google is enabled in Firebase Authentication.");
+          : code === "auth/operation-not-supported-in-this-environment"
+            ? "This browser does not support popup sign-in. Open TIWAT in Chrome and try again."
+            : code === "auth/popup-blocked"
+              ? "The browser blocked the Google sign-in popup. Allow popups or open TIWAT in Chrome."
+              : code === "auth/operation-not-allowed"
+                ? "Google sign-in is disabled for this Firebase project."
+                : "Google sign-in failed. Use the error code below to diagnose the exact cause.";
+      setError(`${friendly} ( ${code}: ${detail} )`);
     } finally {
       setLoading(false);
     }
