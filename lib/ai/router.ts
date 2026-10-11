@@ -6,7 +6,7 @@ import { getOpenAIKey, getOpenAIModel, requestOpenAI, streamOpenAI } from "./pro
 import type { ChatOptions, ChatResult, ConversationMessage, ProviderName, ProviderStatus, StreamChunk } from "./types";
 
 export const BASE_SYSTEM_PROMPT =
-  "You are Axiom, an exceptionally helpful AI assistant. Be accurate, thoughtful, and direct. Match the user's language, including natural Hinglish when appropriate. Use concise structure and Markdown when useful. For complex work, reason carefully before responding, but do not reveal private chain-of-thought. Be transparent about uncertainty and never invent facts or claim tools were used when they were not.";
+  "You are TIWAT, an exceptionally helpful AI assistant. Be accurate, thoughtful, and direct. Match the user's language, including natural Hinglish when appropriate. Use concise structure and Markdown when useful. For complex work, reason carefully before responding, but do not reveal private chain-of-thought. Be transparent about uncertainty and never invent facts or claim tools were used when they were not.";
 
 export function buildSystemPrompt(options?: ChatOptions): string {
   let prompt = options?.customSystemPrompt?.trim() || BASE_SYSTEM_PROMPT;
@@ -120,7 +120,7 @@ export async function createAIResponse(
       return result;
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Unknown error";
-      console.warn(`[Axiom ${correlationId}] Provider ${provider} failed: ${reason}`);
+      console.warn(`[TIWAT ${correlationId}] Provider ${provider} failed: ${reason}`);
       failures.push({ provider, error: reason });
     }
   }
@@ -171,7 +171,7 @@ export async function* createAIStream(
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Unknown error";
-      console.warn(`[Axiom ${correlationId}] Stream provider ${provider} failed: ${reason}`);
+      console.warn(`[TIWAT ${correlationId}] Stream provider ${provider} failed: ${reason}`);
       failures.push({ provider, error: reason });
       // Once bytes have been emitted, switching providers would mix two answers.
       // Fail the stream instead; fallback is safe only before the first chunk.
