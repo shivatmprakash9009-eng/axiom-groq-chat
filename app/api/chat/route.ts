@@ -4,7 +4,6 @@ import { AllProvidersFailedError, NoProviderConfiguredError } from "@/lib/ai/err
 import { createAIResponse, createAIStream } from "@/lib/ai/router";
 import { chatRequestSchema } from "@/lib/ai/schema";
 import { globalRateLimiter } from "@/lib/security/rate-limiter";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -81,11 +80,39 @@ export async function POST(request: NextRequest) {
     // Registered sessions must be validated server-side. Guest mode stays temporary,
     // with the existing per-IP rate limiter protecting anonymous model access.
     if (!guestMode) {
-      const supabase = await createSupabaseServerClient();
-      const { data: claims, error: authError } = await supabase.auth.getClaims();
-      if (authError || !claims?.claims?.sub) {
+      const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      const bearer = request.headers.get("authorization") || "";
+      const idToken = bearer.startsWith("Bearer ") ? bearer.slice(7).trim() : "";
+
+      if (!firebaseApiKey || !idToken) {
         return NextResponse.json(
-          { error: "Please sign in to use your saved TIWAT workspace." },
+          { error: "Please sign in to use your TIWAT workspace." },
+          { status: 401, headers: { "x-request-id": correlationId } }
+        );
+      }
+
+      // Firebase Identity Toolkit validates the ID token server-side. Never trust a UID sent by the browser.
+      const verification = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseApiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+          cache: "no-store",
+        }
+      ).catch(() => null);
+
+      if (!verification?.ok) {
+        return NextResponse.json(
+          { error: "Your sign-in session is invalid or expired. Please sign in again." },
+          { status: 401, headers: { "x-request-id": correlationId } }
+        );
+      }
+
+      const verifiedUser = await verification.json().catch(() => null) as { users?: Array<{ localId?: string }> } | null;
+      if (!verifiedUser?.users?.[0]?.localId) {
+        return NextResponse.json(
+          { error: "Your sign-in session is invalid or expired. Please sign in again." },
           { status: 401, headers: { "x-request-id": correlationId } }
         );
       }
