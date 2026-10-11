@@ -626,9 +626,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
-    if (!guestMode && userId) {
-      void getSupabaseBrowserClient().from("chats").delete().eq("id", id).eq("user_id", userId);
-    }
     if (activeId === id) {
       void setActiveId(null);
     }
@@ -654,10 +651,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     if (guestMode) {
       toast.success("Temporary guest conversation cleared");
       return;
-    }
-    if (userId) {
-      void getSupabaseBrowserClient().from("chats").delete().eq("user_id", userId)
-        .then(({ error }) => error ? toast.error("Could not clear saved history") : undefined);
     }
     toast.success("Conversation history cleared");
   };
