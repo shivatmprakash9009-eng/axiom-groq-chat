@@ -1,8 +1,8 @@
 "use client";
 
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 export function GoogleSignInButton() {
