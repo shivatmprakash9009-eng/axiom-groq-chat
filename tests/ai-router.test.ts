@@ -5,7 +5,7 @@ import { BASE_SYSTEM_PROMPT, buildSystemPrompt, getConfiguredProviders } from ".
 
 test("buildSystemPrompt uses BASE_SYSTEM_PROMPT by default", () => {
   const prompt = buildSystemPrompt();
-  assert.ok(prompt.startsWith("You are Axiom"));
+  assert.ok(prompt.startsWith("You are TIWAT"));
   assert.strictEqual(prompt, BASE_SYSTEM_PROMPT);
 });
 
@@ -18,7 +18,7 @@ test("buildSystemPrompt appends style guidelines", () => {
 });
 
 test("buildSystemPrompt respects customSystemPrompt override", () => {
-  const custom = "Custom instructions for Axiom.";
+  const custom = "Custom instructions for TIWAT.";
   const prompt = buildSystemPrompt({ customSystemPrompt: custom });
   assert.ok(prompt.startsWith(custom));
 });
