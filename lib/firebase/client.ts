@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   getAuth,
   initializeAuth,
   type Auth,
@@ -22,11 +23,14 @@ export function getFirebaseAuth(): Auth {
     ? getApp()
     : initializeApp({ apiKey, authDomain, projectId, appId });
 
-  // Explicitly persist browser auth across reloads and app process restarts.
-  // If another module already initialized Auth for this Firebase app, reuse it.
+  // Persist sessions locally and register the resolver required by popup/redirect sign-in.
   try {
-    return initializeAuth(app, { persistence: browserLocalPersistence });
+    return initializeAuth(app, {
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
   } catch {
+    // Another module may already have initialized Auth for this Firebase app.
     return getAuth(app);
   }
 }
