@@ -56,6 +56,8 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
+const MAX_HISTORY = 100;
+
 const uid = () =>
   globalThis.crypto?.randomUUID?.() ||
   "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
