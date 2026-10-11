@@ -136,11 +136,20 @@ export function ChatWorkspace() {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 1024);
+      // Some Android browsers use a desktop-sized CSS viewport even on phones.
+      // Detect touch-first devices as mobile so the drawer never falls back to
+      // the desktop collapsed rail on a handset.
+      const coarsePointer = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+      setIsMobile(window.innerWidth <= 1024 || coarsePointer);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const pointerQuery = window.matchMedia("(hover: none) and (pointer: coarse)");
+    pointerQuery.addEventListener("change", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      pointerQuery.removeEventListener("change", handleResize);
+    };
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
