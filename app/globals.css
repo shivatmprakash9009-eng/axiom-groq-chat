@@ -179,6 +179,18 @@ textarea:focus-visible,
 .sidebar.is-collapsed .sidebar-footer-label {
   display: none;
 }
+.sidebar.is-collapsed .sidebar-footer-text,
+.sidebar.is-collapsed .sidebar-footer > [data-radix-menu-trigger] {
+  display: none;
+}
+.sidebar.is-collapsed .sidebar-footer {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+.sidebar.is-collapsed .sidebar-footer .user-avatar {
+  flex: 0 0 31px;
+}
 .sidebar-actions {
   display: grid;
   gap: 5px;
