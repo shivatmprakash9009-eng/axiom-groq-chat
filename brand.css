@@ -17,7 +17,9 @@
   --footnote-orange: #bf4800;
   --text-on-dark: #f5f5f7;
   --text-secondary-on-dark: #a1a1a6;
-  --font: var(--font-geist-sans), Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font:
+    var(--font-geist-sans), Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
+    sans-serif;
   --radius-pill: 980px;
   --radius-card: 28px;
   --section-pad: 96px;

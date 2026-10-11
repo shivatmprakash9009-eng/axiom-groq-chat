@@ -1,0 +1,6 @@
+{
+  "name": "Axiom",
+  "description": "A calm, intelligent workspace for your ideas, research, and work.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

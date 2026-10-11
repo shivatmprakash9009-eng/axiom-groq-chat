@@ -1,13 +1,13 @@
-name: Build Axiom
+name: Build & Verify Axiom
 
 on:
   push:
-    branches: [main, release/axiom-v1, feature/nextjs-saas-migration]
+    branches: [main, release/axiom-v1, feature/nextjs-saas-migration, feature/*]
   pull_request:
     branches: [main]
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -16,7 +16,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Install dependencies
-        run: npm install
-      - name: Build frontend
+        run: npm ci || npm install
+      - name: Lint checks
+        run: npm run lint
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Automated unit tests
+        run: npm test
+      - name: Production build
         run: npm run build

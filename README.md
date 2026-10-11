@@ -1,51 +1,90 @@
-# Axiom
+# Axiom AI — Autonomous Intelligent Workspace
 
-Axiom is a responsive AI workspace built on Next.js App Router, React 19, strict TypeScript, Tailwind CSS v4, Radix primitives, Framer Motion, TanStack Query, Zustand, Nuqs, Zod, React Hook Form, Sonner, Biome, PostHog, Arcjet, and Vercel Speed Insights.
+Axiom AI is a production-grade, calm, and responsive AI workspace built on Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS v4, Radix primitives, Framer Motion, TanStack Query, Zustand, Zod, and Biome.
 
-## Architecture
+## Highlights & Capabilities
 
-- The Next.js App Router serves the interface and the server-side chat API.
-- The client does not choose, display, or receive a model/provider identifier. A server-side router routes technical/reasoning, creative-writing, multilingual, and general requests to available providers.
-- Supported server-side providers: OpenAI, Groq, Anthropic Claude, and Google Gemini. If a preferred provider fails, Axiom tries the next configured provider.
-- Conversation history and appearance are stored in local browser storage. No login, account sync, or shared database has been added yet.
-- Text, Markdown, CSV, JSON, HTML, logs, and common text-code file attachments are read in the browser and included as text context (max 180 KB per file). Binary/PDF/image attachments are not parsed in this version.
-- The supplied Apple-inspired design tokens are preserved in brand.css and tailwind.config.js and are imported into the global Tailwind stylesheet.
+- **Multi-Provider AI Architecture**: Server-side router orchestrating Google Gemini, Groq, OpenAI, and Anthropic Claude with automatic failover, latency measurement, and correlation ID tracking (`x-request-id`).
+- **Real-Time Streaming**: Server-Sent Events (SSE) token streaming for responsive chat generation with instant stop/abort control.
+- **Failover & Bounded Retries**: Gracefully falls back across eligible configured providers if a primary model experiences transient load or unavailability (e.g. Gemini 503 fallback).
+- **Dual-Layer Rate Limiting**: Built-in sliding-window memory rate limiter protects the API by default; optionally enhanced by Arcjet shielding when `ARCJET_KEY` is provided.
+- **Apple-Inspired Design Tokens**: Restrained, calm visual hierarchy with light/dark appearance modes and zero-pill aesthetic.
+- **Conversation Management**: Search conversations with quick filtering (`⌘K`), inline renaming, individual conversation deletion, and export to Markdown (`.md`) or JSON (`.json`).
+- **Code Block Rendering**: Syntax-highlighted code blocks with language labels and one-click copy buttons.
+- **Customizable Workspace Settings**: Style presets (Balanced, Concise, In-depth, Code First), custom system prompt instructions, and real-time generation toggles.
+- **Keyboard Shortcuts**: Complete productivity shortcuts overlay accessible via `⌘,` or composer buttons.
+- **Strict Quality Gates**: Complete TypeScript type safety, Biome linting, automated unit tests, and GitHub Actions CI workflow.
 
-## Local development
+## Architecture & File Structure
 
-1. Use Node.js 20.9 or newer.
-2. Install packages with npm install.
-3. Copy .env.example to .env.local and add at least one server-side key: GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.
-4. Run npm run dev and open http://localhost:3000.
-5. Run npm run typecheck and npm run lint before shipping.
+```
+├── app/
+│   ├── api/
+│   │   ├── chat/route.ts      # Multi-provider streaming & non-streaming chat endpoint
+│   │   └── health/route.ts    # Operational health check & active provider signals
+│   ├── globals.css            # Tailwind CSS v4 and brand design tokens
+│   ├── layout.tsx             # Root layout with fonts, metadata, and providers
+│   └── page.tsx               # Primary chat workspace interface
+├── components/
+│   ├── chat-workspace.tsx     # Primary chat workspace with SSE streaming and history
+│   ├── code-block.tsx         # Markdown code block with copy button and language label
+│   ├── settings-modal.tsx     # SaaS workspace settings and system diagnostics
+│   ├── shortcuts-modal.tsx    # Keyboard shortcuts reference dialog
+│   └── providers.tsx          # TanStack Query, Sonner toaster, and Nuqs adapter
+├── lib/
+│   ├── ai/
+│   │   ├── errors.ts          # Typed, normalized AI error classes with retry metadata
+│   │   ├── router.ts          # Provider ranking, failover, and streaming generator
+│   │   ├── schema.ts          # Zod validation schemas for requests and composer
+│   │   ├── types.ts           # Shared AI types, interfaces, and options
+│   │   └── providers/         # Modular provider adapters (Gemini, Groq, OpenAI, Anthropic)
+│   └── security/
+│       └── rate-limiter.ts    # Sliding-window memory rate limiter
+├── stores/
+│   └── ui-store.ts            # Zustand store for appearance, sidebar, and preferences
+└── tests/                     # Automated unit test suite (rate limiter, schemas, router)
+```
 
-## Vercel setup
+## Local Development
 
-Import this repository as a Next.js project, keep the framework preset as Next.js, and add provider keys in Project Settings → Environment Variables. At least one provider key is required for AI replies; keys are optional individually and only configured providers are considered. Redeploy after adding or changing variables.
+1. **Prerequisites**: Node.js 22 or newer.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Environment Setup**:
+   Copy `.env.example` to `.env.local` and provide at least one provider API key:
+   - `GEMINI_API_KEY` (recommended for Google AI Studio / Gemini 2.5 Flash)
+   - `GROQ_API_KEY`
+   - `OPENAI_API_KEY`
+   - `ANTHROPIC_API_KEY`
+4. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000).
 
-Recommended server-side variables:
+## Quality Gates & Verification
 
-- OPENAI_API_KEY / OPENAI_MODEL
-- GROQ_API_KEY / GROQ_MODEL
-- ANTHROPIC_API_KEY / ANTHROPIC_MODEL
-- GEMINI_API_KEY / GEMINI_MODEL
+Run all quality checks before shipping:
 
-Use current model IDs enabled for your individual provider account. Defaults are centralized server-side and can be changed without modifying the UI. Never place provider keys in client bundles or variables prefixed with NEXT_PUBLIC_.
+```bash
+# Run automated unit tests
+npm test
 
-Optional integrations:
+# Check TypeScript type safety
+npm run typecheck
 
-- ARCJET_KEY activates request shielding and server-side rate limits on the chat endpoint. Without this key, the endpoint still validates message shape and length, but Arcjet's protection is not active.
-- NEXT_PUBLIC_POSTHOG_KEY and NEXT_PUBLIC_POSTHOG_HOST activate PostHog analytics. PostHog is disabled until a project token is supplied.
-- Vercel Speed Insights is included; enable it from the Vercel dashboard if your project plan/settings require it.
+# Run Biome linter & formatting check
+npm run lint
 
-## Scripts
+# Build production bundle
+npm run build
+```
 
-- npm run dev — Next.js development server
-- npm run build — production build
-- npm start — production server
-- npm run typecheck — strict TypeScript check
-- npm run lint — Biome formatter/linter check
+## Security & Operational Principles
 
-## Security and launch notes
-
-The API keys are accessed only by server-side route code. Provider selection is never accepted from the browser. Requests are validated by Zod and limited in total context size. Arcjet is opt-in until an ARCJET_KEY is configured. Browser-local history is device-specific and is not a substitute for authenticated, persistent SaaS data. Before adding multi-user accounts, billing, file search, or team workspaces, add authentication, a database, per-user quotas, and durable abuse controls.
+- **No Client Secrets**: AI provider keys and model configurations are strictly server-side and never exposed in browser bundles or client requests.
+- **Fail-Safe Operation**: When no provider keys are configured, Axiom returns clear, non-leaking diagnostic guidance.
+- **Rate Limiting**: Requests are metered at 30 requests/minute per client IP via the sliding window limiter.
+- **Sanitized Inputs**: Requests are bounded to 50 messages and 150,000 characters total context size to prevent denial-of-service and memory exhaustion.
