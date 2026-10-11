@@ -142,14 +142,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Axiom is not connected to an AI provider yet. Configure at least one server-side API key (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).",
+            "TIWAT is not connected to an AI provider yet. Configure at least one server-side API key (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).",
         },
         { status: 503, headers: { "x-request-id": correlationId } }
       );
     }
 
     if (error instanceof AllProvidersFailedError) {
-      console.error(`[Axiom ${correlationId}] All providers failed:`, error.failures);
+      console.error(`[TIWAT ${correlationId}] All providers failed:`, error.failures);
       return NextResponse.json(
         {
           error:
@@ -160,9 +160,9 @@ export async function POST(request: NextRequest) {
     }
 
     const reason = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[Axiom ${correlationId}] Chat request error:`, reason);
+    console.error(`[TIWAT ${correlationId}] Chat request error:`, reason);
     return NextResponse.json(
-      { error: "Axiom could not complete that response. Please try again in a moment." },
+      { error: "TIWAT could not complete that response. Please try again in a moment." },
       { status: 502, headers: { "x-request-id": correlationId } }
     );
   }
