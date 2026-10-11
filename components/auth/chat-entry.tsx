@@ -1,12 +1,13 @@
 "use client";
 
+import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 
 export function ChatEntry({ children, guestMode = false }: { children: React.ReactNode; guestMode?: boolean }) {
   const router = useRouter();
-  const [allowed, setAllowed] = useState(false);
+  const [allowed, setAllowed] = useState(guestMode);
 
   useEffect(() => {
     if (guestMode) {
@@ -14,15 +15,16 @@ export function ChatEntry({ children, guestMode = false }: { children: React.Rea
       return;
     }
 
+    let unsubscribe: (() => void) | undefined;
     try {
-      const supabase = getSupabaseBrowserClient();
-      supabase.auth.getClaims().then(({ data, error }) => {
-        if (!error && data?.claims?.sub) setAllowed(true);
+      unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+        if (user) setAllowed(true);
         else router.replace("/login");
-      }).catch(() => router.replace("/login"));
+      }, () => router.replace("/login"));
     } catch {
       router.replace("/login");
     }
+    return () => unsubscribe?.();
   }, [guestMode, router]);
 
   if (!allowed) {

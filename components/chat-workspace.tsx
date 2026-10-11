@@ -1,6 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -44,11 +45,11 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { CodeBlock } from "@/components/code-block";
 import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
 import type { ComposerValues, ConversationMessage } from "@/lib/ai/schema";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { useUIStore } from "@/stores/ui-store";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
@@ -99,8 +100,7 @@ function titleFrom(text: string) {
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
+    const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -155,84 +155,48 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const activeChat = chats.find((chat) => chat.id === activeId) || null;
   const messages = activeChat?.messages || [];
 
-  // Load only the current user's data. Guest chats live in memory for this component mount.
+  // Authentication is managed by Firebase. Chat history stays in memory until a backend is selected.
   useEffect(() => {
     let cancelled = false;
-    async function initialize() {
-      if (guestMode) {
-        setChats([]);
-        setUserId(null);
-        setHydrated(true);
-        return;
-      }
-
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        if (authError || !authData.user) {
-          setHydrated(true);
-          return;
-        }
-        if (cancelled) return;
-        setUserId(authData.user.id);
-
-        const { data, error } = await supabase
-          .from("chats")
-          .select("id, title, messages, updated_at")
-          .eq("user_id", authData.user.id)
-          .order("updated_at", { ascending: false })
-          .limit(MAX_HISTORY);
-
-        if (error) throw error;
-        if (cancelled) return;
-        const loaded: Chat[] = (data || []).map((row: { id: string; title: string; messages: Message[]; updated_at: string }) => ({
-          id: row.id,
-          title: row.title,
-          messages: Array.isArray(row.messages) ? row.messages : [],
-          updatedAt: Date.parse(row.updated_at) || Date.now(),
-        }));
-        setChats(loaded);
-      } catch {
-        if (!cancelled) {
-          toast.error("Could not load saved conversations", {
-            description: "Confirm the Supabase chats table and its row-level security policies are configured.",
-          });
-        }
-      } finally {
-        if (!cancelled) setHydrated(true);
-      }
-    }
-
-    void initialize();
     try {
       const saved = localStorage.getItem("axiom.appearance");
       if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
     } catch {
       // Browser storage may be unavailable.
     }
+    if (guestMode) {
+      setChats([]);
+      setHydrated(true);
+    } else {
+      try {
+        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+          if (cancelled) return;
+          setHydrated(true);
+        }, () => {
+          if (!cancelled) setHydrated(true);
+        });
+        fetch("/api/health", { cache: "no-store" })
+          .then((response) => response.json())
+          .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
+          .catch(() => setChatReady(false));
+        return () => {
+          cancelled = true;
+          unsubscribe();
+        };
+      } catch {
+        setHydrated(true);
+        toast.error("Firebase Authentication is not configured", {
+          description: "Add the Firebase web app environment variables in Vercel.",
+        });
+      }
+    }
+
     fetch("/api/health", { cache: "no-store" })
       .then((response) => response.json())
       .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
       .catch(() => setChatReady(false));
-
     return () => { cancelled = true; };
   }, [guestMode]);
-
-  // Persist only authenticated chats. Guest state is never written to browser storage or Supabase.
-  useEffect(() => {
-    if (!hydrated || guestMode || !userId || chats.length === 0) return;
-    const supabase = getSupabaseBrowserClient();
-    const rows = chats.slice(0, MAX_HISTORY).map((chat) => ({
-      id: chat.id,
-      user_id: userId,
-      title: chat.title,
-      messages: chat.messages,
-      updated_at: new Date(chat.updatedAt).toISOString(),
-    }));
-    void supabase.from("chats").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) toast.error("Conversation could not be saved", { description: "Verify Supabase table setup and row-level security." });
-    });
-  }, [chats, guestMode, hydrated, userId]);
 
   // Persist appearance
   useEffect(() => {
@@ -322,7 +286,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(!guestMode && getFirebaseAuth().currentUser
+            ? { Authorization: `Bearer ${await getFirebaseAuth().currentUser?.getIdToken()}` }
+            : {}),
+        },
         cache: "no-store",
         signal: controller.signal,
         body: JSON.stringify({
@@ -656,9 +625,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
-    if (!guestMode && userId) {
-      void getSupabaseBrowserClient().from("chats").delete().eq("id", id).eq("user_id", userId);
-    }
     if (activeId === id) {
       void setActiveId(null);
     }
@@ -684,10 +650,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     if (guestMode) {
       toast.success("Temporary guest conversation cleared");
       return;
-    }
-    if (userId) {
-      void getSupabaseBrowserClient().from("chats").delete().eq("user_id", userId)
-        .then(({ error }) => error ? toast.error("Could not clear saved history") : undefined);
     }
     toast.success("Conversation history cleared");
   };
@@ -901,7 +863,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                     <LogIn size={15} /> Sign in to save chats
                   </DropdownMenu.Item>
                 ) : (
-                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { void fetch("/auth/signout", { method: "POST" }).finally(() => { window.location.href = "/"; }); }}>
+                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { void signOut(getFirebaseAuth()).finally(() => { window.location.href = "/login"; }); }}>
                     <LogOut size={15} /> Sign out
                   </DropdownMenu.Item>
                 )}

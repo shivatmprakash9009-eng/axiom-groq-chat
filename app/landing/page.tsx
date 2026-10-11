@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, Check, LockKeyhole, Sparkles, Zap } from "lucide-react";
+import Link from "next/link";
 
 const capabilities = [
   { icon: Sparkles, title: "Think with clarity", detail: "Turn scattered thoughts into useful direction." },
