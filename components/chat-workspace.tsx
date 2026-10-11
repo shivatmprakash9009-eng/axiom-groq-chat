@@ -1,6 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -44,12 +45,11 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import { getFirebaseAuth } from "@/lib/firebase/client";
-import { onAuthStateChanged, signOut } from "firebase/auth";
 import { CodeBlock } from "@/components/code-block";
 import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
 import type { ComposerValues, ConversationMessage } from "@/lib/ai/schema";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { useUIStore } from "@/stores/ui-store";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
