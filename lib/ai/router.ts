@@ -122,6 +122,11 @@ export async function createAIResponse(
       const reason = error instanceof Error ? error.message : "Unknown error";
       console.warn(`[Axiom ${correlationId}] Provider ${provider} failed: ${reason}`);
       failures.push({ provider, error: reason });
+      // Once bytes have been emitted, switching providers would mix two answers.
+      // Fail the stream instead; fallback is safe only before the first chunk.
+      if (yieldedAny) {
+        throw error;
+      }
     }
   }
 
@@ -147,8 +152,8 @@ export async function* createAIStream(
     const key = keyFor(provider);
     if (!key) continue;
 
+    let yieldedAny = false;
     try {
-      let yieldedAny = false;
       let streamGen: AsyncGenerator<StreamChunk, void, unknown>;
 
       if (provider === "gemini") {
