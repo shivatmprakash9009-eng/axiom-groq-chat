@@ -998,6 +998,7 @@ textarea:focus-visible,
       box-shadow 0.25s ease,
       visibility 0s linear 0s;
   }
+  /* Mobile uses a full-width drawer, never the desktop compact rail. */
   .sidebar.is-collapsed .sidebar-brand-row {
     justify-content: space-between;
     padding-inline: 3px;
@@ -1047,7 +1048,7 @@ textarea:focus-visible,
     justify-content: flex-start;
     padding: 13px 7px 2px;
   }
-  .sidebar.is-collapsed .user-avatar {
+  .sidebar.is-collapsed .sidebar-footer .user-avatar {
     margin: 0;
   }
   .mobile-backdrop {
