@@ -336,29 +336,35 @@ export function ChatWorkspace() {
               const dataStr = trimmed.slice(6).trim();
               if (dataStr === "[DONE]") continue;
 
+              let chunk: { error?: string; text?: string };
               try {
-                const chunk = JSON.parse(dataStr);
-                if (chunk.error) {
-                  throw new Error(chunk.error);
-                }
-                if (chunk.text) {
-                  accumulated += chunk.text;
-                  setChats((current) =>
-                    current.map((chat) =>
-                      chat.id !== chatId
-                        ? chat
-                        : {
-                            ...chat,
-                            updatedAt: Date.now(),
-                            messages: chat.messages.map((m) =>
-                              m.id === placeholderId ? { ...m, content: accumulated } : m
-                            ),
-                          }
-                    )
-                  );
-                }
+                chunk = JSON.parse(dataStr) as { error?: string; text?: string };
               } catch {
-                // partial line or parse issue
+                // Ignore malformed or incomplete SSE data lines only.
+                continue;
+              }
+
+              // Handle server errors outside the JSON parse catch. Otherwise
+              // throwing here is swallowed and the UI falsely says no response.
+              if (chunk.error) {
+                throw new Error(chunk.error);
+              }
+
+              if (typeof chunk.text === "string" && chunk.text.length > 0) {
+                accumulated += chunk.text;
+                setChats((current) =>
+                  current.map((chat) =>
+                    chat.id !== chatId
+                      ? chat
+                      : {
+                          ...chat,
+                          updatedAt: Date.now(),
+                          messages: chat.messages.map((m) =>
+                            m.id === placeholderId ? { ...m, content: accumulated } : m
+                          ),
+                        }
+                  )
+                );
               }
             }
           }
