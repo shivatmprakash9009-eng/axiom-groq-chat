@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { ChatWorkspace } from "@/components/chat-workspace";
+import { ChatEntry } from "@/components/auth/chat-entry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ChatPage({
@@ -8,18 +8,19 @@ export default async function ChatPage({
   searchParams: Promise<{ guest?: string }>;
 }) {
   const search = await searchParams;
+  const guestMode = search.guest === "1";
 
-  if (search.guest === "1") {
-    return <ChatWorkspace guestMode />;
+  if (!guestMode) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase.auth.getClaims();
+      if (error || !data?.claims?.sub) {
+        return <ChatEntry guestMode={false}><ChatWorkspace guestMode={false} /></ChatEntry>;
+      }
+    } catch {
+      return <ChatEntry guestMode={false}><ChatWorkspace guestMode={false} /></ChatEntry>;
+    }
   }
 
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.getClaims();
-    if (error || !data?.claims?.sub) redirect("/login");
-  } catch {
-    redirect("/login");
-  }
-
-  return <ChatWorkspace />;
+  return <ChatEntry guestMode={guestMode}><ChatWorkspace guestMode={guestMode} /></ChatEntry>;
 }
