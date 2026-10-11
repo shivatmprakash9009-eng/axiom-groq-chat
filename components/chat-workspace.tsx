@@ -60,7 +60,11 @@ const OLD_KEYS = ["axiom.groq-chat.v2", "axiom.groq-chat.v1"];
 const MAX_HISTORY = 100;
 
 const uid = () =>
-  globalThis.crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(16).slice(2);
+  globalThis.crypto?.randomUUID?.() ||
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.random() * 16 | 0;
+    return (char === "x" ? random : (random & 0x3) | 0x8).toString(16);
+  });
 
 const suggestions: { title: string; description: string; prompt: string; icon: LucideIcon }[] = [
   {
@@ -182,10 +186,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const activeChat = chats.find((chat) => chat.id === activeId) || null;
   const messages = activeChat?.messages || [];
 
-  // Load history only for signed-in users. Guests get an in-memory, non-persistent session.
+  // Load only the current user's data. Guest chats live in memory for this component mount.
   useEffect(() => {
     let cancelled = false;
-    const initialize = async () => {
+    async function initialize() {
       if (guestMode) {
         setChats([]);
         setUserId(null);
@@ -222,20 +226,20 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       } catch {
         if (!cancelled) {
           toast.error("Could not load saved conversations", {
-            description: "Check that the Supabase chats table and its RLS policies are configured.",
+            description: "Confirm the Supabase chats table and its row-level security policies are configured.",
           });
         }
       } finally {
         if (!cancelled) setHydrated(true);
       }
-    };
+    }
 
     void initialize();
     try {
       const saved = localStorage.getItem("axiom.appearance");
       if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
     } catch {
-      // Browser storage may be unavailable in private browsing.
+      // Browser storage may be unavailable.
     }
     fetch("/api/health", { cache: "no-store" })
       .then((response) => response.json())
@@ -245,7 +249,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     return () => { cancelled = true; };
   }, [guestMode]);
 
-  // Authenticated history is persisted in the Supabase table protected by RLS. Guest state never reaches storage.
+  // Persist only authenticated chats. Guest state is never written to browser storage or Supabase.
   useEffect(() => {
     if (!hydrated || guestMode || !userId || chats.length === 0) return;
     const supabase = getSupabaseBrowserClient();
@@ -257,7 +261,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       updated_at: new Date(chat.updatedAt).toISOString(),
     }));
     void supabase.from("chats").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) toast.error("Conversation could not be saved", { description: "Check the Supabase chats table and RLS policies." });
+      if (error) toast.error("Conversation could not be saved", { description: "Verify Supabase table setup and row-level security." });
     });
   }, [chats, guestMode, hydrated, userId]);
 
