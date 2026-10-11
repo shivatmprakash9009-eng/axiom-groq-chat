@@ -310,7 +310,7 @@ export function ChatWorkspace() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Axiom request failed (status ${response.status})`);
+        throw new Error(errorData.error || `TIWAT request failed (status ${response.status})`);
       }
 
       const contentType = response.headers.get("content-type") || "";
@@ -382,7 +382,7 @@ export function ChatWorkspace() {
         // Handle standard JSON response
         const data = await response.json();
         if (!data.message) {
-          throw new Error(data.error || "Axiom returned an empty response.");
+          throw new Error(data.error || "TIWAT returned an empty response.");
         }
 
         setChats((current) =>
@@ -547,7 +547,7 @@ export function ChatWorkspace() {
     ];
     if (!allowed.includes(extension) && !file.type.startsWith("text/")) {
       toast.error("Unsupported file format", {
-        description: "Axiom accepts text, code, CSV, JSON, Markdown, and configuration files.",
+        description: "TIWAT accepts text, code, CSV, JSON, Markdown, and configuration files.",
       });
       return;
     }
@@ -594,7 +594,7 @@ export function ChatWorkspace() {
       return;
     }
     const content = `# ${activeChat.title}\n\n${activeChat.messages
-      .map((m) => `## ${m.role === "user" ? "User" : "Axiom"}\n\n${m.content}`)
+      .map((m) => `## ${m.role === "user" ? "User" : "TIWAT"}\n\n${m.content}`)
       .join("\n\n---\n\n")}`;
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -686,13 +686,13 @@ export function ChatWorkspace() {
               event.preventDefault();
               startNewChat();
             }}
-            aria-label="Axiom home"
+            aria-label="TIWAT home"
           >
             <span className="brand-symbol">
               <Sparkles size={17} strokeWidth={2.2} />
             </span>
             <span className="brand-word">
-              axi<em>om</em>
+              tiw<em>at</em>
             </span>
           </a>
           {!isMobile && (
@@ -831,7 +831,7 @@ export function ChatWorkspace() {
         <div className="sidebar-footer">
           <div className="user-avatar">A</div>
           <div className="sidebar-footer-text">
-            <strong>Axiom Workspace</strong>
+            <strong>TIWAT Workspace</strong>
             <span className="capitalize">{settings.chatStyle} Mode</span>
           </div>
           <DropdownMenu.Root>
@@ -901,7 +901,7 @@ export function ChatWorkspace() {
             >
               <PanelLeftClose size={17} className={!sidebarOpen ? "rotate-180 transition-transform" : "transition-transform"} />
             </button>
-            <div className="topbar-title">{activeChat?.title || "Axiom Workspace"}</div>
+            <div className="topbar-title">{activeChat?.title || "TIWAT Workspace"}</div>
             <ChevronDown size={14} className="title-caret" />
           </div>
           <div className="topbar-right">
@@ -912,7 +912,7 @@ export function ChatWorkspace() {
               title="Click to view workspace settings"
             >
               <span className="status-dot" />
-              {chatReady === false ? "Setup needed" : `Axiom · ${settings.chatStyle}`}
+              {chatReady === false ? "Setup needed" : `TIWAT · ${settings.chatStyle}`}
             </button>
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
@@ -1007,7 +1007,7 @@ export function ChatWorkspace() {
                     <div className="message-body">
                       {message.role === "assistant" && (
                         <div className="message-author flex items-center justify-between">
-                          <span>Axiom</span>
+                          <span>TIWAT</span>
                         </div>
                       )}
                       {message.role === "user" ? (
@@ -1135,8 +1135,8 @@ export function ChatWorkspace() {
                 }}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder={isDragOver ? "Drop file to attach…" : "Message Axiom… (Enter to send, Shift+Enter for newline)"}
-                aria-label="Message Axiom"
+                placeholder={isDragOver ? "Drop file to attach…" : "Message TIWAT… (Enter to send, Shift+Enter for newline)"}
+                aria-label="Message TIWAT"
                 autoComplete="off"
               />
               <div className="composer-tools">
@@ -1191,7 +1191,7 @@ export function ChatWorkspace() {
               </div>
             </form>
             <div className="composer-hint flex items-center justify-center gap-2">
-              <span>Axiom can make mistakes. Verify important facts.</span>
+              <span>TIWAT can make mistakes. Verify important facts.</span>
               <span>·</span>
               <button
                 type="button"
