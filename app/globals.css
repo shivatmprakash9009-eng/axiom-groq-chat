@@ -180,7 +180,7 @@ textarea:focus-visible,
   display: none;
 }
 .sidebar.is-collapsed .sidebar-footer-text,
-.sidebar.is-collapsed .sidebar-footer > [data-radix-menu-trigger] {
+.sidebar.is-collapsed .sidebar-footer > button {
   display: none;
 }
 .sidebar.is-collapsed .sidebar-footer {
