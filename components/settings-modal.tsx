@@ -111,7 +111,7 @@ export function SettingsModal() {
               maxLength={2000}
             />
             <div className="flex justify-between text-[10px] text-[var(--text-tertiary)] mt-1">
-              <span>Appended to Axiom reasoning prompt</span>
+              <span>Appended to TIWAT reasoning prompt</span>
               <span>{settings.customSystemPrompt.length}/2000</span>
             </div>
           </div>
