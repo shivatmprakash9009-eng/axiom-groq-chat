@@ -158,6 +158,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   // Authentication is managed by Firebase. Chat history stays in memory until a backend is selected.
   useEffect(() => {
     let cancelled = false;
+    try {
+      const saved = localStorage.getItem("axiom.appearance");
+      if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
+    } catch {
+      // Browser storage may be unavailable.
+    }
     if (guestMode) {
       setChats([]);
       setHydrated(true);
@@ -189,12 +195,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       .then((response) => response.json())
       .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
       .catch(() => setChatReady(false));
-    try {
-      const saved = localStorage.getItem("axiom.appearance");
-      if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
-    } catch {
-      // Browser storage may be unavailable.
-    }
     return () => { cancelled = true; };
   }, [guestMode]);
 
