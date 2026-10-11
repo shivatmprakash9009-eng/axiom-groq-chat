@@ -1024,7 +1024,7 @@ textarea:focus-visible,
   .sidebar.is-collapsed .brand-word {
     display: inline-block !important;
   }
-  .sidebar.is-collapsed .sidebar-copy {
+  .sidebar.is-collapsed.mobile-open .sidebar-copy {
     display: block !important;
   }
   .sidebar.is-collapsed .history-heading {
@@ -1036,11 +1036,11 @@ textarea:focus-visible,
   .sidebar.is-collapsed .chat-list {
     display: block !important;
   }
-  .sidebar.is-collapsed .sidebar-footer-text {
+  .sidebar.is-collapsed.mobile-open .sidebar-footer-text {
     display: block !important;
   }
-  .sidebar.is-collapsed .sidebar-footer .icon-button,
-  .sidebar.is-collapsed .sidebar-footer button {
+  .sidebar.is-collapsed.mobile-open .sidebar-footer .icon-button,
+  .sidebar.is-collapsed.mobile-open .sidebar-footer button {
     display: inline-grid !important;
   }
   .sidebar.is-collapsed .sidebar-actions {
