@@ -55,8 +55,6 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
-const STORAGE_KEY = "axiom.workspace.chats.v3";
-const OLD_KEYS = ["axiom.groq-chat.v2", "axiom.groq-chat.v1"];
 const MAX_HISTORY = 100;
 
 const uid = () =>
@@ -96,35 +94,6 @@ const suggestions: { title: string; description: string; prompt: string; icon: L
 function titleFrom(text: string) {
   const clean = text.replace(/\s+/g, " ").trim();
   return clean.length > 45 ? `${clean.slice(0, 44).trimEnd()}…` : clean || "New conversation";
-}
-
-function readHistory(): Chat[] {
-  try {
-    const current = localStorage.getItem(STORAGE_KEY);
-    let raw: string | null = current;
-    if (!raw) {
-      for (const key of OLD_KEYS) {
-        raw = localStorage.getItem(key);
-        if (raw) break;
-      }
-    }
-    const value: unknown = JSON.parse(raw || "[]");
-    if (!Array.isArray(value)) return [];
-    return value
-      .filter((entry): entry is Chat => Boolean(entry && typeof entry.id === "string" && Array.isArray(entry.messages)))
-      .map((entry) => ({
-        id: entry.id,
-        title: String(entry.title || "Conversation"),
-        updatedAt: Number(entry.updatedAt || Date.now()),
-        messages: entry.messages.filter(
-          (m: Message) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
-        ),
-      }))
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, MAX_HISTORY);
-  } catch {
-    return [];
-  }
 }
 
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
@@ -935,7 +904,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                     <LogIn size={15} /> Sign in to save chats
                   </DropdownMenu.Item>
                 ) : (
-                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { window.location.href = "/auth/signout"; }}>
+                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { void fetch("/auth/signout", { method: "POST" }).finally(() => { window.location.href = "/"; }); }}>
                     <LogOut size={15} /> Sign out
                   </DropdownMenu.Item>
                 )}
