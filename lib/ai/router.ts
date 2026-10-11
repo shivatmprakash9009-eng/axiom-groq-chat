@@ -122,11 +122,6 @@ export async function createAIResponse(
       const reason = error instanceof Error ? error.message : "Unknown error";
       console.warn(`[Axiom ${correlationId}] Provider ${provider} failed: ${reason}`);
       failures.push({ provider, error: reason });
-      // Once bytes have been emitted, switching providers would mix two answers.
-      // Fail the stream instead; fallback is safe only before the first chunk.
-      if (yieldedAny) {
-        throw error;
-      }
     }
   }
 
@@ -178,6 +173,11 @@ export async function* createAIStream(
       const reason = error instanceof Error ? error.message : "Unknown error";
       console.warn(`[Axiom ${correlationId}] Stream provider ${provider} failed: ${reason}`);
       failures.push({ provider, error: reason });
+      // Once bytes have been emitted, switching providers would mix two answers.
+      // Fail the stream instead; fallback is safe only before the first chunk.
+      if (yieldedAny) {
+        throw error;
+      }
     }
   }
 
