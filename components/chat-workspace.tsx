@@ -132,6 +132,16 @@ export function ChatWorkspace() {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -656,7 +666,7 @@ export function ChatWorkspace() {
 
       {/* Sidebar */}
       <aside
-        className={`sidebar ${!sidebarOpen ? "is-collapsed " : ""}${mobileSidebarOpen ? "mobile-open" : ""}`}
+        className={`sidebar ${!isMobile && !sidebarOpen ? "is-collapsed " : ""}${mobileSidebarOpen ? "mobile-open" : ""}`}
         aria-label="Conversation navigation"
       >
         <div className="sidebar-brand-row">
@@ -676,14 +686,16 @@ export function ChatWorkspace() {
               axi<em>om</em>
             </span>
           </a>
-          <button
-            type="button"
-            className="icon-button collapse-toggle"
-            onClick={toggleSidebar}
-            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          >
-            <PanelLeftClose size={17} />
-          </button>
+          {!isMobile && (
+            <button
+              type="button"
+              className="icon-button collapse-toggle"
+              onClick={toggleSidebar}
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              <PanelLeftClose size={17} />
+            </button>
+          )}
           <button
             type="button"
             className="icon-button mobile-close"

@@ -188,20 +188,18 @@ textarea:focus-visible,
 .sidebar.is-collapsed .history-search,
 .sidebar.is-collapsed .chat-list,
 .sidebar.is-collapsed .sidebar-footer-text,
-.sidebar.is-collapsed .sidebar-footer .icon-button {
+.sidebar.is-collapsed .sidebar-footer .icon-button,
+.sidebar.is-collapsed .sidebar-footer button {
   display: none !important;
 }
-.sidebar.is-collapsed .sidebar-footer-text,
-.sidebar.is-collapsed .sidebar-footer > button {
-  display: none;
-}
 .sidebar.is-collapsed .sidebar-footer {
-  justify-content: center;
-  gap: 0;
-  padding-inline: 0;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 12px 0 4px !important;
 }
 .sidebar.is-collapsed .sidebar-footer .user-avatar {
-  flex: 0 0 31px;
+  margin: 0 auto !important;
+  flex: 0 0 31px !important;
 }
 .sidebar-actions {
   display: grid;
@@ -951,55 +949,57 @@ textarea:focus-visible,
 .hidden-file-input {
   display: none;
 }
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .app-shell {
     min-height: 100dvh;
     overflow: hidden;
   }
   .sidebar {
-    position: fixed;
-    z-index: 50;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: min(84vw, 300px);
-    max-width: 320px;
-    height: 100dvh;
-    flex: none;
-    box-shadow: 18px 0 60px rgba(0, 0, 0, 0.25);
-    transform: translateX(-105%);
-    visibility: hidden;
-    pointer-events: none;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 17px 13px calc(14px + env(safe-area-inset-bottom));
+    position: fixed !important;
+    z-index: 50 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(85vw, 320px) !important;
+    max-width: 320px !important;
+    height: 100dvh !important;
+    flex: none !important;
+    box-shadow: none !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    display: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 17px 13px calc(14px + env(safe-area-inset-bottom)) !important;
     transition:
       transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
       visibility 0.25s ease;
   }
   .sidebar.mobile-open {
-    transform: translateX(0);
-    visibility: visible;
-    pointer-events: auto;
+    display: flex !important;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    box-shadow: 18px 0 60px rgba(0, 0, 0, 0.28) !important;
   }
-  /* On mobile screens, even if sidebar has is-collapsed class from desktop state,
-     it must always act as the full mobile drawer when opened */
+  /* On mobile/tablet screens, any collapsed desktop state is completely overridden */
   .sidebar.is-collapsed {
-    width: min(84vw, 300px);
-    max-width: 320px;
-    padding: 17px 13px calc(14px + env(safe-area-inset-bottom));
-    overflow-y: auto;
-    overflow-x: hidden;
+    width: min(85vw, 320px) !important;
+    max-width: 320px !important;
+    padding: 17px 13px calc(14px + env(safe-area-inset-bottom)) !important;
   }
   .sidebar.is-collapsed:not(.mobile-open) {
-    transform: translateX(-105%);
-    visibility: hidden;
-    pointer-events: none;
+    display: none !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
   .sidebar.is-collapsed.mobile-open {
-    transform: translateX(0);
-    visibility: visible;
-    pointer-events: auto;
+    display: flex !important;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
   .sidebar.is-collapsed .sidebar-brand-row {
     justify-content: space-between;
@@ -1029,7 +1029,8 @@ textarea:focus-visible,
   .sidebar.is-collapsed .sidebar-footer-text {
     display: block !important;
   }
-  .sidebar.is-collapsed .sidebar-footer .icon-button {
+  .sidebar.is-collapsed .sidebar-footer .icon-button,
+  .sidebar.is-collapsed .sidebar-footer button {
     display: inline-grid !important;
   }
   .sidebar.is-collapsed .sidebar-actions {
@@ -1058,25 +1059,26 @@ textarea:focus-visible,
     inset: 0;
     display: block;
     border: 0;
-    background: rgba(5, 10, 20, 0.4);
-    backdrop-filter: blur(2px);
+    background: rgba(5, 10, 20, 0.45);
+    backdrop-filter: blur(3px);
   }
   .main-panel {
-    width: 100%;
-    min-width: 0;
-    flex: 1 1 100%;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    margin-left: 0 !important;
   }
   .mobile-menu {
-    display: inline-grid;
+    display: inline-grid !important;
   }
   .desktop-sidebar-toggle {
-    display: none;
+    display: none !important;
   }
   .sidebar .collapse-toggle {
-    display: none;
+    display: none !important;
   }
   .sidebar .mobile-close {
-    display: inline-grid;
+    display: inline-grid !important;
   }
   .topbar {
     height: 56px;
