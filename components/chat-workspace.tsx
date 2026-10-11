@@ -18,6 +18,8 @@ import {
   FileJson,
   FileText,
   Lightbulb,
+  LogIn,
+  LogOut,
   type LucideIcon,
   Menu,
   MessageCircle,
@@ -42,6 +44,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { CodeBlock } from "@/components/code-block";
 import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
@@ -52,12 +55,14 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
-const STORAGE_KEY = "axiom.workspace.chats.v3";
-const OLD_KEYS = ["axiom.groq-chat.v2", "axiom.groq-chat.v1"];
 const MAX_HISTORY = 100;
 
 const uid = () =>
-  globalThis.crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(16).slice(2);
+  globalThis.crypto?.randomUUID?.() ||
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.random() * 16 | 0;
+    return (char === "x" ? random : (random & 0x3) | 0x8).toString(16);
+  });
 
 const suggestions: { title: string; description: string; prompt: string; icon: LucideIcon }[] = [
   {
@@ -91,38 +96,10 @@ function titleFrom(text: string) {
   return clean.length > 45 ? `${clean.slice(0, 44).trimEnd()}…` : clean || "New conversation";
 }
 
-function readHistory(): Chat[] {
-  try {
-    const current = localStorage.getItem(STORAGE_KEY);
-    let raw: string | null = current;
-    if (!raw) {
-      for (const key of OLD_KEYS) {
-        raw = localStorage.getItem(key);
-        if (raw) break;
-      }
-    }
-    const value: unknown = JSON.parse(raw || "[]");
-    if (!Array.isArray(value)) return [];
-    return value
-      .filter((entry): entry is Chat => Boolean(entry && typeof entry.id === "string" && Array.isArray(entry.messages)))
-      .map((entry) => ({
-        id: entry.id,
-        title: String(entry.title || "Conversation"),
-        updatedAt: Number(entry.updatedAt || Date.now()),
-        messages: entry.messages.filter(
-          (m: Message) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
-        ),
-      }))
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, MAX_HISTORY);
-  } catch {
-    return [];
-  }
-}
-
-export function ChatWorkspace() {
+export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
@@ -178,35 +155,84 @@ export function ChatWorkspace() {
   const activeChat = chats.find((chat) => chat.id === activeId) || null;
   const messages = activeChat?.messages || [];
 
-  // Hydration & initial checks
+  // Load only the current user's data. Guest chats live in memory for this component mount.
   useEffect(() => {
-    setChats(readHistory());
-    setHydrated(true);
+    let cancelled = false;
+    async function initialize() {
+      if (guestMode) {
+        setChats([]);
+        setUserId(null);
+        setHydrated(true);
+        return;
+      }
 
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) {
+          setHydrated(true);
+          return;
+        }
+        if (cancelled) return;
+        setUserId(authData.user.id);
+
+        const { data, error } = await supabase
+          .from("chats")
+          .select("id, title, messages, updated_at")
+          .eq("user_id", authData.user.id)
+          .order("updated_at", { ascending: false })
+          .limit(MAX_HISTORY);
+
+        if (error) throw error;
+        if (cancelled) return;
+        const loaded: Chat[] = (data || []).map((row: { id: string; title: string; messages: Message[]; updated_at: string }) => ({
+          id: row.id,
+          title: row.title,
+          messages: Array.isArray(row.messages) ? row.messages : [],
+          updatedAt: Date.parse(row.updated_at) || Date.now(),
+        }));
+        setChats(loaded);
+      } catch {
+        if (!cancelled) {
+          toast.error("Could not load saved conversations", {
+            description: "Confirm the Supabase chats table and its row-level security policies are configured.",
+          });
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    }
+
+    void initialize();
     try {
       const saved = localStorage.getItem("axiom.appearance");
-      if (saved === "dark" || saved === "light") {
-        useUIStore.getState().setAppearance(saved);
-      }
+      if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
     } catch {
-      // browser storage
+      // Browser storage may be unavailable.
     }
-
     fetch("/api/health", { cache: "no-store" })
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
       .catch(() => setChatReady(false));
-  }, []);
 
-  // Save chats to localStorage
+    return () => { cancelled = true; };
+  }, [guestMode]);
+
+  // Persist only authenticated chats. Guest state is never written to browser storage or Supabase.
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0, MAX_HISTORY)));
-    } catch {
-      toast.error("Browser storage is full. Export your chats before clearing history.");
-    }
-  }, [chats, hydrated]);
+    if (!hydrated || guestMode || !userId || chats.length === 0) return;
+    const supabase = getSupabaseBrowserClient();
+    const rows = chats.slice(0, MAX_HISTORY).map((chat) => ({
+      id: chat.id,
+      user_id: userId,
+      title: chat.title,
+      messages: chat.messages,
+      updated_at: new Date(chat.updatedAt).toISOString(),
+    }));
+    void supabase.from("chats").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) toast.error("Conversation could not be saved", { description: "Verify Supabase table setup and row-level security." });
+    });
+  }, [chats, guestMode, hydrated, userId]);
 
   // Persist appearance
   useEffect(() => {
@@ -305,6 +331,7 @@ export function ChatWorkspace() {
           style: settings.chatStyle,
           customSystemPrompt: settings.customSystemPrompt || undefined,
           temperature: settings.temperature,
+          guestMode,
         }),
       });
 
@@ -629,6 +656,9 @@ export function ChatWorkspace() {
 
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
+    if (!guestMode && userId) {
+      void getSupabaseBrowserClient().from("chats").delete().eq("id", id).eq("user_id", userId);
+    }
     if (activeId === id) {
       void setActiveId(null);
     }
@@ -651,10 +681,13 @@ export function ChatWorkspace() {
   const clearHistory = () => {
     setChats([]);
     void setActiveId(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // best effort
+    if (guestMode) {
+      toast.success("Temporary guest conversation cleared");
+      return;
+    }
+    if (userId) {
+      void getSupabaseBrowserClient().from("chats").delete().eq("user_id", userId)
+        .then(({ error }) => error ? toast.error("Could not clear saved history") : undefined);
     }
     toast.success("Conversation history cleared");
   };
@@ -835,10 +868,10 @@ export function ChatWorkspace() {
         <div className="sidebar-copy">Thoughtfully built for high-leverage work.</div>
 
         <div className="sidebar-footer">
-          <div className="user-avatar">A</div>
+          <div className="user-avatar">{guestMode ? "G" : "T"}</div>
           <div className="sidebar-footer-text">
-            <strong>TIWAT Workspace</strong>
-            <span className="capitalize">{settings.chatStyle} Mode</span>
+            <strong>{guestMode ? "Guest session" : "Your TIWAT workspace"}</strong>
+            <span>{guestMode ? "Temporary · Not saved" : `${settings.chatStyle} Mode`}</span>
           </div>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -862,6 +895,16 @@ export function ChatWorkspace() {
                   <Command size={15} />
                   Keyboard shortcuts
                 </DropdownMenu.Item>
+                <DropdownMenu.Separator className="dropdown-separator" />
+                {guestMode ? (
+                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { window.location.href = "/login"; }}>
+                    <LogIn size={15} /> Sign in to save chats
+                  </DropdownMenu.Item>
+                ) : (
+                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { void fetch("/auth/signout", { method: "POST" }).finally(() => { window.location.href = "/"; }); }}>
+                    <LogOut size={15} /> Sign out
+                  </DropdownMenu.Item>
+                )}
                 <DropdownMenu.Separator className="dropdown-separator" />
                 <DropdownMenu.Item className="dropdown-item" onSelect={toggleAppearance}>
                   {appearance === "dark" ? <Sun size={15} /> : <Moon size={15} />}
