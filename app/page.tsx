@@ -10,7 +10,7 @@ export default function HomePage() {
             className="main-panel"
             style={{ display: "grid", placeItems: "center", color: "var(--text-secondary)" }}
           >
-            Loading Axiom…
+            Loading TIWAT…
           </div>
         </main>
       }
