@@ -1,9 +1,12 @@
 "use client";
 
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useRouter } from "next/navigation";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 
 export function GoogleSignInButton() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -11,16 +14,18 @@ export function GoogleSignInButton() {
     setLoading(true);
     setError("");
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (oauthError) throw oauthError;
-    } catch {
-      setError("Google sign-in could not start. Check that Supabase is configured and Google provider is enabled.");
+      const auth = getFirebaseAuth();
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      router.replace("/chat");
+      router.refresh();
+    } catch (caught) {
+      const code = typeof caught === "object" && caught && "code" in caught ? String(caught.code) : "";
+      setError(code === "auth/popup-closed-by-user"
+        ? "Google sign-in was cancelled."
+        : code === "auth/unauthorized-domain"
+          ? "This domain is not authorized in Firebase Authentication settings."
+          : "Google sign-in could not complete. Check that Google is enabled in Firebase Authentication.");
+    } finally {
       setLoading(false);
     }
   }
