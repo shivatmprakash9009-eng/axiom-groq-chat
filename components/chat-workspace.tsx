@@ -655,14 +655,14 @@ export function ChatWorkspace() {
       <SettingsModal />
       <ShortcutsModal />
 
-      {mobileSidebarOpen && (
-        <button
-          type="button"
-          className="mobile-backdrop"
-          onClick={() => setMobileSidebarOpen(false)}
-          aria-label="Close navigation"
-        />
-      )}
+      <button
+        type="button"
+        className={`mobile-backdrop ${mobileSidebarOpen ? "is-visible" : ""}`}
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-label="Close navigation"
+        tabIndex={mobileSidebarOpen ? 0 : -1}
+        aria-hidden={!mobileSidebarOpen}
+      />
 
       {/* Sidebar */}
       <aside

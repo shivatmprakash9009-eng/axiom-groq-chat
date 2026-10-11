@@ -954,52 +954,49 @@ textarea:focus-visible,
     min-height: 100dvh;
     overflow: hidden;
   }
-  .sidebar {
-    position: fixed !important;
-    z-index: 50 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: min(85vw, 320px) !important;
-    max-width: 320px !important;
-    height: 100dvh !important;
-    flex: none !important;
-    box-shadow: none !important;
-    transform: translateX(-105%) !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    display: none !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding: 17px 13px calc(14px + env(safe-area-inset-bottom)) !important;
+  /*
+   * Mobile / tablet drawer.
+   * The drawer is always in the DOM and slides with transform only. We never
+   * use display:none or animate width here, otherwise closing the drawer makes
+   * it vanish instantly (or reflow its text while shrinking) instead of sliding
+   * out smoothly.
+   */
+  .sidebar,
+  .sidebar.is-collapsed {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    width: min(85vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    flex: none;
+    padding: 17px 13px calc(14px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-shadow: none;
+    transform: translateX(-105%);
+    visibility: hidden;
+    pointer-events: none;
+    will-change: transform;
+    /* width/flex-basis must not animate on mobile (prevents text reflow) */
     transition:
       transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-      visibility 0.25s ease;
+      box-shadow 0.25s ease,
+      visibility 0s linear 0.25s;
   }
-  .sidebar.mobile-open {
-    display: flex !important;
-    transform: translateX(0) !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    box-shadow: 18px 0 60px rgba(0, 0, 0, 0.28) !important;
-  }
-  /* On mobile/tablet screens, any collapsed desktop state is completely overridden */
-  .sidebar.is-collapsed {
-    width: min(85vw, 320px) !important;
-    max-width: 320px !important;
-    padding: 17px 13px calc(14px + env(safe-area-inset-bottom)) !important;
-  }
-  .sidebar.is-collapsed:not(.mobile-open) {
-    display: none !important;
-    transform: translateX(-105%) !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
+  .sidebar.mobile-open,
   .sidebar.is-collapsed.mobile-open {
-    display: flex !important;
-    transform: translateX(0) !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    box-shadow: 18px 0 60px rgba(0, 0, 0, 0.28);
+    transition:
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.25s ease,
+      visibility 0s linear 0s;
   }
   .sidebar.is-collapsed .sidebar-brand-row {
     justify-content: space-between;
@@ -1061,6 +1058,20 @@ textarea:focus-visible,
     border: 0;
     background: rgba(5, 10, 20, 0.45);
     backdrop-filter: blur(3px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.25s ease,
+      visibility 0s linear 0.25s;
+  }
+  .mobile-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      opacity 0.25s ease,
+      visibility 0s linear 0s;
   }
   .main-panel {
     width: 100% !important;
