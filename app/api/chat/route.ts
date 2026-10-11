@@ -4,6 +4,7 @@ import { AllProvidersFailedError, NoProviderConfiguredError } from "@/lib/ai/err
 import { createAIResponse, createAIStream } from "@/lib/ai/router";
 import { chatRequestSchema } from "@/lib/ai/schema";
 import { globalRateLimiter } from "@/lib/security/rate-limiter";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -75,7 +76,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages, stream, style, customSystemPrompt, temperature } = parsed.data;
+    const { messages, stream, style, customSystemPrompt, temperature, guestMode } = parsed.data;
+
+    // Registered sessions must be validated server-side. Guest mode stays temporary,
+    // with the existing per-IP rate limiter protecting anonymous model access.
+    if (!guestMode) {
+      const supabase = await createSupabaseServerClient();
+      const { data: claims, error: authError } = await supabase.auth.getClaims();
+      if (authError || !claims?.claims?.sub) {
+        return NextResponse.json(
+          { error: "Please sign in to use your saved TIWAT workspace." },
+          { status: 401, headers: { "x-request-id": correlationId } }
+        );
+      }
+    }
 
     // 4. Streaming execution if requested
     if (stream) {
