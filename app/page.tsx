@@ -11,5 +11,5 @@ export default async function HomePage() {
     // Supabase is intentionally optional at build time; show landing page until configured.
   }
 
-  return redirect("/landing");
+  return redirect("/login");
 }
