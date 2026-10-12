@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUp,
@@ -19,6 +19,7 @@ import {
   LogOut,
   Moon,
   MoreHorizontal,
+  Menu,
   PanelLeft,
   PanelLeftClose,
   Paperclip,
@@ -75,8 +76,8 @@ const uid = () =>
 
 const promptSuggestions = [
   {
-    title: "Create illustration",
-    subtitle: "Generate creative imagery & concepts",
+    title: "Explore an idea",
+    subtitle: "Generate ideas and creative concepts",
     prompt: "Generate a creative concept and detailed description for a modern minimalist illustration.",
     icon: Sparkles,
   },
@@ -93,8 +94,8 @@ const promptSuggestions = [
     icon: FileText,
   },
   {
-    title: "Help me write",
-    subtitle: "Draft emails, essays & pitches",
+    title: "Write or edit",
+    subtitle: "Draft content and refine ideas",
     prompt: "Help me craft a clear, compelling proposal tailored to an executive audience.",
     icon: PenLine,
   },
@@ -260,6 +261,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [hydrated, setHydrated] = useState(false);
   const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [thumbsState, setThumbsState] = useState<Record<string, "up" | "down">>({});
@@ -345,8 +348,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
     if (!guestMode) {
       try {
-        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (_user) => {
-          // Sync auth state if needed
+        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+          setFirebaseUser(user);
         });
         return () => unsubscribe();
       } catch {
@@ -385,7 +388,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         startNewChat();
       } else if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
-        window.location.href = "/chat?settings=1";
+        window.location.href = "/settings";
       } else if (e.key === "Escape") {
         setShortcutsModalOpen(false);
         setMobileSidebarOpen(false);
@@ -870,7 +873,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       <aside
         className={`sidebar ${!isMobile && !sidebarOpen ? "is-collapsed" : ""} ${
           mobileSidebarOpen ? "mobile-open" : ""
-        }`}
+        } ${mobileSearchOpen ? "mobile-search-open" : ""}`}
         aria-label="Chat navigation"
       >
         {/* Sidebar Brand & Top Action Row */}
@@ -891,6 +894,9 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           </a>
 
           <div className="flex items-center gap-1">
+            <button type="button" className="mobile-drawer-search" aria-label="Search conversations" onClick={() => { setMobileSearchOpen(true); window.setTimeout(() => document.getElementById("sidebar-search")?.focus(), 50); }}>
+              <Search size={20} />
+            </button>
             <button
               type="button"
               className="icon-button"
@@ -941,6 +947,14 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           )}
         </div>
 
+        <div className="mobile-drawer-nav" aria-label="Workspace navigation">
+          <button type="button" className="mobile-drawer-nav-item" onClick={startNewChat}><PenLine size={21} /><span>New chat</span></button>
+          <button type="button" className="mobile-drawer-nav-item" onClick={() => { setMobileSearchOpen(true); window.setTimeout(() => document.getElementById("sidebar-search")?.focus(), 50); }}><Search size={21} /><span>Search conversations</span></button>
+          <button type="button" className="mobile-drawer-nav-item" onClick={() => { setShortcutsModalOpen(true); setMobileSidebarOpen(false); }}><Command size={21} /><span>Keyboard shortcuts</span></button>
+          <a href="/settings" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><Settings size={21} /><span>Settings</span></a>
+          <a href="/privacy" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><ShieldCheck size={21} /><span>Privacy & security</span></a>
+        </div>
+        <div className="mobile-recent-heading">Recents</div>
         {/* Date-Grouped History Section */}
         <section className="history-section" aria-label="Conversation history">
           <div className="chat-list">
@@ -1038,11 +1052,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         {/* User Account Footer */}
         <div className="sidebar-footer">
           <div className="user-avatar-circle">
-            {guestMode ? "G" : "T"}
+            {firebaseUser?.photoURL ? <img src={firebaseUser.photoURL} alt="" referrerPolicy="no-referrer" /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
           </div>
           <div className="sidebar-footer-text">
-            <strong>{guestMode ? "Guest Account" : "Personal Workspace"}</strong>
-            <span>{currentModel.name}</span>
+            <strong>{guestMode ? "Guest session" : firebaseUser?.displayName || firebaseUser?.email?.split("@")[0] || "My account"}</strong>
+            <span>{guestMode ? "Guest workspace" : firebaseUser?.email || currentModel.name}</span>
           </div>
 
           <DropdownMenu.Root>
@@ -1059,7 +1073,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               <DropdownMenu.Content align="end" side="top" sideOffset={8} className="dropdown-content">
                 <DropdownMenu.Item
                   className="dropdown-item"
-                  onSelect={() => window.location.href = "/chat?settings=1"}
+                  onSelect={() => window.location.href = "/settings"}
                 >
                   <Settings size={15} />
                   <span>Settings</span>
@@ -1116,6 +1130,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         </div>
+        <div className="mobile-drawer-bottom">
+          <button type="button" className="mobile-chat-button" onClick={startNewChat}><PenLine size={18} /><span>Chat</span></button>
+          <button type="button" className="mobile-profile-button" onClick={() => { window.location.href = "/settings"; }} aria-label="Open account settings">
+            {firebaseUser?.photoURL ? <img src={firebaseUser.photoURL} alt="" referrerPolicy="no-referrer" /> : <span>{guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
+          </button>
+        </div>
       </aside>
 
       {/* Main Panel */}
@@ -1138,7 +1158,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                 title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
                 aria-label="Toggle sidebar"
               >
-                <PanelLeft size={18} />
+                <Menu size={20} />
               </button>
             )}
 
@@ -1188,7 +1208,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Separator className="dropdown-separator" />
                   <DropdownMenu.Item
                     className="dropdown-item text-xs"
-                    onSelect={() => window.location.href = "/chat?settings=1"}
+                    onSelect={() => window.location.href = "/settings"}
                   >
                     <Settings size={14} />
                     <span>More model settings…</span>
@@ -1204,7 +1224,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               title="New chat"
               aria-label="New chat"
             >
-              <Plus size={18} />
+              <PenLine size={20} />
             </button>
           </div>
 
@@ -1224,7 +1244,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <button
               type="button"
               className="icon-button"
-              onClick={() => window.location.href = "/chat?settings=1"}
+              onClick={() => window.location.href = "/settings"}
               title="Settings"
               aria-label="Open settings"
             >
@@ -1257,7 +1277,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Content align="end" sideOffset={6} className="dropdown-content">
                     <DropdownMenu.Item
                       className="dropdown-item"
-                      onSelect={() => window.location.href = "/chat?settings=1"}
+                      onSelect={() => window.location.href = "/settings"}
                     >
                       <Settings size={14} />
                       <span>Settings</span>
