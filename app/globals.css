@@ -1432,3 +1432,325 @@ textarea:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .settings-nav-item, .settings-style-card, .settings-secondary-button, .settings-primary-button, .settings-switch, .settings-switch span { transition: none; }
 }
+
+
+/* Mobile workspace styling inspired by a focused, full-screen chat app */
+.app-shell.theme-dark {
+  --page: #000000;
+  --sidebar: #212121;
+  --surface: #212121;
+  --surface-soft: #2b2b2b;
+  --surface-hover: #343434;
+  --text: #f7f7f7;
+  --text-secondary: #d0d0d0;
+  --text-tertiary: #a4a4a4;
+  --line: rgba(255, 255, 255, .09);
+  --line-strong: rgba(255, 255, 255, .16);
+  --accent: #3767f5;
+  --accent-hover: #4b78ff;
+  --accent-soft: #2c2c2c;
+  --accent-ink: #f5f5f5;
+  --user-bubble: #303030;
+  --user-bubble-text: #f5f5f5;
+  --composer-bg: #303030;
+  --composer-border: rgba(255,255,255,.12);
+  --composer-shadow: none;
+}
+.mobile-drawer-search, .mobile-drawer-nav, .mobile-recent-heading, .mobile-drawer-bottom { display: none; }
+
+@media (max-width: 640px) {
+  .app-shell {
+    background: #000;
+    color: #f7f7f7;
+  }
+  .app-shell button, .app-shell input, .app-shell textarea {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .app-shell .main-panel, .app-shell .main-scroll { background: #000; }
+  .app-shell .topbar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 82px;
+    flex: 0 0 82px;
+    padding: 18px 22px 0;
+    border: 0;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .app-shell .topbar-left {
+    width: 100%;
+    flex: 1;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .app-shell .model-picker-btn, .app-shell .topbar-right { display: none !important; }
+  .app-shell .topbar-left button[aria-label="Toggle sidebar"],
+  .app-shell .topbar-left button[aria-label="New chat"] {
+    display: inline-grid;
+    width: 66px;
+    height: 66px;
+    flex: 0 0 66px;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 50%;
+    background: #292929;
+    color: #f8f8f8;
+    box-shadow: none;
+  }
+  .app-shell .topbar-left button[aria-label="Toggle sidebar"]:hover,
+  .app-shell .topbar-left button[aria-label="New chat"]:hover {
+    background: #383838;
+  }
+  .app-shell .main-scroll { padding-top: 0; }
+  .app-shell .welcome-container {
+    min-height: 100%;
+    justify-content: flex-end;
+    gap: 0;
+    padding: 0 18px calc(16px + env(safe-area-inset-bottom));
+  }
+  .app-shell .welcome-container::before,
+  .app-shell .welcome-title-chatgpt,
+  .app-shell .welcome-sub { display: none; }
+  .app-shell .welcome-prompt-grid {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 4px;
+    order: 1;
+    margin: auto 0 12px;
+    padding: 0 10px 4px;
+  }
+  .app-shell .welcome-prompt-card:nth-child(2),
+  .app-shell .welcome-prompt-card:nth-child(3) { display: none; }
+  .app-shell .welcome-prompt-card {
+    min-height: 42px;
+    gap: 12px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #f5f5f5;
+    box-shadow: none;
+    font-size: 15px;
+  }
+  .app-shell .welcome-prompt-card:hover {
+    transform: none;
+    background: #151515;
+    box-shadow: none;
+  }
+  .app-shell .prompt-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 0;
+    background: transparent;
+    color: #ededed;
+  }
+  .app-shell .welcome-prompt-card > div > div:last-child { display: none; }
+  .app-shell .composer-card-chatgpt {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 8px 11px;
+    border: 1px solid #414141;
+    border-radius: 30px;
+    background: #303030;
+    box-shadow: none;
+    order: 2;
+  }
+  .app-shell .composer-card-chatgpt:focus-within {
+    border-color: #515151;
+    background: #303030;
+    box-shadow: none;
+  }
+  .app-shell .composer-card-chatgpt textarea {
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    height: 38px;
+    max-height: 110px;
+    flex: 1 1 auto;
+    order: 2;
+    padding: 8px 0;
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .app-shell .composer-card-chatgpt textarea::placeholder { color: #b6b6b6; }
+  .app-shell .composer-toolbar-chatgpt,
+  .app-shell .composer-toolbar-chatgpt > div { display: contents; }
+  .app-shell .composer-toolbar-chatgpt > div:first-child > button:first-of-type {
+    display: inline-grid;
+    width: 32px;
+    height: 36px;
+    flex: 0 0 32px;
+    place-items: center;
+    order: 1;
+    color: #f0f0f0;
+  }
+  .app-shell .composer-toolbar-chatgpt button[aria-label="Search web"],
+  .app-shell .composer-toolbar-chatgpt button[aria-label="Reasoning mode"] { display: none; }
+  .app-shell .composer-toolbar-chatgpt > div:last-child > button {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    order: 3;
+    background: #3767f5;
+    color: #fff;
+    box-shadow: none;
+  }
+  .app-shell .composer-card-chatgpt > .inline-flex {
+    order: 0;
+    flex: 1 0 100%;
+    max-width: 100%;
+  }
+  .app-shell .composer-zone-chatgpt {
+    flex: 0 0 auto;
+    padding: 8px 18px calc(14px + env(safe-area-inset-bottom));
+    background: #000;
+  }
+  .app-shell .conversation-wrap {
+    width: 100%;
+    padding: 96px 18px 24px;
+  }
+  .app-shell .message-row-assistant { gap: 10px; }
+  .app-shell .assistant-avatar-badge { flex: 0 0 28px; }
+  .app-shell .sidebar {
+    width: min(88vw, 380px) !important;
+    max-width: 380px !important;
+    padding: 17px 15px calc(12px + env(safe-area-inset-bottom)) !important;
+    border: 0 !important;
+    background: #212121 !important;
+    color: #f6f6f6;
+    box-shadow: none !important;
+  }
+  .app-shell .sidebar-brand-row {
+    min-height: 62px;
+    margin-bottom: 14px;
+    padding: 0 5px;
+  }
+  .app-shell .brand-lockup {
+    gap: 10px;
+    color: #f7f7f7;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 23px;
+    font-weight: 650;
+    letter-spacing: -.045em;
+  }
+  .app-shell .brand-symbol-circle {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+    box-shadow: none;
+  }
+  .app-shell .brand-symbol-circle svg { width: 31px; height: 31px; }
+  .app-shell .sidebar-brand-row > div button[aria-label="Close sidebar"] { display: none; }
+  .app-shell .mobile-drawer-search {
+    display: inline-grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: #2a2a2a;
+    color: #f1f1f1;
+  }
+  .app-shell .sidebar-search { display: none; margin: 4px 3px 12px; background: #2b2b2b; border-color: #3a3a3a; }
+  .app-shell .sidebar.mobile-search-open .sidebar-search { display: flex; }
+  .app-shell .sidebar-search input { color: white; }
+  .app-shell .sidebar-search input::placeholder { color: #aaa; }
+  .app-shell .mobile-drawer-nav {
+    display: grid;
+    gap: 3px;
+    padding: 0 2px 19px;
+  }
+  .app-shell .mobile-drawer-nav-item {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #f5f5f5;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+  }
+  .app-shell .mobile-drawer-nav-item svg { flex: 0 0 24px; color: #f3f3f3; }
+  .app-shell .mobile-drawer-nav-item:hover { background: #2c2c2c; }
+  .app-shell .mobile-recent-heading {
+    display: block;
+    padding: 16px 9px 9px;
+    color: #f5f5f5;
+    font-size: 14px;
+    font-weight: 750;
+  }
+  .app-shell .history-section { min-height: 100px; overflow: hidden; margin-top: 0; }
+  .app-shell .chat-list { overflow-y: auto; padding: 0 2px 8px; }
+  .app-shell .history-heading { display: none; }
+  .app-shell .chat-history-row { height: 43px; margin-bottom: 1px; border-radius: 8px; }
+  .app-shell .chat-history-open { padding: 0 9px; color: #f2f2f2; font-size: 14px; }
+  .app-shell .chat-history-row.active { background: #303030; box-shadow: none; }
+  .app-shell .sidebar-footer { display: none; }
+  .app-shell .mobile-drawer-bottom {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: auto;
+    padding: 12px 1px 2px;
+    background: #212121;
+  }
+  .app-shell .mobile-chat-button {
+    display: inline-flex;
+    min-width: 142px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 19px;
+    border: 0;
+    border-radius: 999px;
+    background: #3767f5;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .app-shell .mobile-profile-button {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    place-items: center;
+    overflow: hidden;
+    padding: 0;
+    border: 2px solid #3a3a3a;
+    border-radius: 50%;
+    background: #606060;
+    color: white;
+    font-weight: 700;
+  }
+  .app-shell .mobile-profile-button img { width: 100%; height: 100%; object-fit: cover; }
+  .app-shell .mobile-profile-button span { display: grid; width: 100%; height: 100%; place-items: center; }
+  .app-shell .mobile-backdrop { background: rgba(0,0,0,.58); backdrop-filter: none; }
+}
+@media (max-width: 380px) {
+  .app-shell .sidebar { width: 91vw !important; }
+  .app-shell .topbar { padding-right: 17px; padding-left: 17px; }
+  .app-shell .topbar-left button[aria-label="Toggle sidebar"],
+  .app-shell .topbar-left button[aria-label="New chat"] { width: 58px; height: 58px; flex-basis: 58px; }
+}
