@@ -1,10 +1,10 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
+  type Auth,
   browserLocalPersistence,
   browserPopupRedirectResolver,
   getAuth,
   initializeAuth,
-  type Auth,
 } from "firebase/auth";
 
 export function getFirebaseAuth(): Auth {

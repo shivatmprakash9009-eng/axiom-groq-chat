@@ -3,48 +3,55 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
-import gsap from "gsap";
 import {
-  ArrowDownToLine,
   ArrowUp,
-  BookOpen,
   Check,
   ChevronDown,
-  CircleStop,
   Code2,
   Command,
   Copy,
-  Edit2,
   FileCode,
   FileJson,
   FileText,
+  Globe,
   Lightbulb,
   LogIn,
   LogOut,
-  type LucideIcon,
-  Menu,
-  MessageCircle,
   Moon,
   MoreHorizontal,
+  PanelLeft,
   PanelLeftClose,
   Paperclip,
+  Pencil,
   PenLine,
   Plus,
-  RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   Sparkles,
+  Square,
   Sun,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   X,
 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { type ChangeEvent, type DragEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useForm } from "react-hook-form";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
+import { ChatGPTIcon } from "@/components/chatgpt-icon";
 import { CodeBlock } from "@/components/code-block";
 import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
@@ -56,83 +63,162 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
+const STORAGE_KEY = "tiwat.chats.v1";
+const FALLBACK_KEYS = ["axiom.workspace.chats.v3", "axiom.groq-chat.v2"];
 const MAX_HISTORY = 100;
 
 const uid = () =>
   globalThis.crypto?.randomUUID?.() ||
   "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
-    const random = Math.random() * 16 | 0;
+    const random = (Math.random() * 16) | 0;
     return (char === "x" ? random : (random & 0x3) | 0x8).toString(16);
   });
 
-const suggestions: { title: string; description: string; prompt: string; icon: LucideIcon }[] = [
+const promptSuggestions = [
   {
-    title: "Plan something ambitious",
-    description: "Turn a big goal into clear steps",
-    prompt: "Help me turn a big goal into a practical, step-by-step plan with milestones.",
-    icon: Lightbulb,
+    title: "Create illustration",
+    subtitle: "Generate creative imagery & concepts",
+    prompt: "Generate a creative concept and detailed description for a modern minimalist illustration.",
+    icon: Sparkles,
   },
   {
-    title: "Build or debug code",
-    description: "Work through a technical challenge",
-    prompt: "Help me design a clean, production-ready solution to a technical problem. Ask for any missing context.",
+    title: "Analyze data",
+    subtitle: "Find patterns & calculate insights",
+    prompt: "Help me write a Python script to analyze, clean, and visualize a dataset step by step.",
     icon: Code2,
   },
   {
-    title: "Write with clarity",
-    description: "Shape an idea into compelling words",
-    prompt: "Help me express an idea clearly and persuasively. Start by asking what the audience and goal are.",
-    icon: PenLine,
+    title: "Summarize text",
+    subtitle: "Distill complex reports & articles",
+    prompt: "Summarize this topic into key takeaways, pros and cons, and an action plan.",
+    icon: FileText,
   },
   {
-    title: "Learn something deeply",
-    description: "Make a difficult concept click",
-    prompt: "Teach me a difficult concept from first principles, with examples and a short practice exercise.",
-    icon: BookOpen,
+    title: "Help me write",
+    subtitle: "Draft emails, essays & pitches",
+    prompt: "Help me craft a clear, compelling proposal tailored to an executive audience.",
+    icon: PenLine,
+  },
+];
+
+const availableModels = [
+  {
+    id: "tiwat-4o",
+    name: "TIWAT 4o",
+    badge: "Smartest",
+    description: "Our most capable model for general text, reasoning & code",
+    style: "default" as const,
+  },
+  {
+    id: "tiwat-o1",
+    name: "TIWAT o1",
+    badge: "Reasoning",
+    description: "Uses deep thinking for complex math, science & algorithms",
+    style: "detailed" as const,
+  },
+  {
+    id: "tiwat-4o-mini",
+    name: "TIWAT 4o mini",
+    badge: "Fast",
+    description: "Lightweight and fast for quick, everyday answers",
+    style: "default" as const,
+  },
+  {
+    id: "tiwat-concise",
+    name: "TIWAT Concise",
+    badge: "Brief",
+    description: "Provides direct, concise answers without fluff",
+    style: "concise" as const,
   },
 ];
 
 function titleFrom(text: string) {
   const clean = text.replace(/\s+/g, " ").trim();
-  return clean.length > 45 ? `${clean.slice(0, 44).trimEnd()}…` : clean || "New conversation";
+  return clean.length > 40 ? `${clean.slice(0, 39).trimEnd()}…` : clean || "New chat";
+}
+
+function readHistory(): Chat[] {
+  if (typeof window === "undefined") return [];
+  try {
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      for (const k of FALLBACK_KEYS) {
+        raw = localStorage.getItem(k);
+        if (raw) break;
+      }
+    }
+    const value: unknown = JSON.parse(raw || "[]");
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((entry): entry is Chat => Boolean(entry && typeof entry.id === "string" && Array.isArray(entry.messages)))
+      .map((entry) => ({
+        id: entry.id,
+        title: String(entry.title || "New chat"),
+        updatedAt: Number(entry.updatedAt || Date.now()),
+        messages: entry.messages.filter(
+          (m: Message) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
+        ),
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, MAX_HISTORY);
+  } catch {
+    return [];
+  }
+}
+
+function groupChatsByDate(chats: Chat[]) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const sevenDaysAgo = today - 7 * 86400000;
+  const thirtyDaysAgo = today - 30 * 86400000;
+
+  const groups: { [key: string]: Chat[] } = {
+    Today: [],
+    Yesterday: [],
+    "Previous 7 Days": [],
+    "Previous 30 Days": [],
+    Older: [],
+  };
+
+  for (const chat of chats) {
+    const time = chat.updatedAt || 0;
+    if (time >= today) {
+      groups.Today.push(chat);
+    } else if (time >= yesterday) {
+      groups.Yesterday.push(chat);
+    } else if (time >= sevenDaysAgo) {
+      groups["Previous 7 Days"].push(chat);
+    } else if (time >= thirtyDaysAgo) {
+      groups["Previous 30 Days"].push(chat);
+    } else {
+      groups.Older.push(chat);
+    }
+  }
+
+  return Object.entries(groups).filter(([_, items]) => items.length > 0);
 }
 
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
-    const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
+  const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [chatReady, setChatReady] = useState<boolean | null>(null);
+  const [thumbsState, setThumbsState] = useState<Record<string, "up" | "down">>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      // Some Android browsers use a desktop-sized CSS viewport even on phones.
-      // Detect touch-first devices as mobile so the drawer never falls back to
-      // the desktop collapsed rail on a handset.
-      const coarsePointer = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-      setIsMobile(window.innerWidth <= 1024 || coarsePointer);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    const pointerQuery = window.matchMedia("(hover: none) and (pointer: coarse)");
-    pointerQuery.addEventListener("change", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      pointerQuery.removeEventListener("change", handleResize);
-    };
-  }, []);
+  const [selectedModelId, setSelectedModelId] = useState("tiwat-4o");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [reasoningEnabled, setReasoningEnabled] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const welcomeRef = useRef<HTMLDivElement>(null);
+  const centerComposerRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -140,11 +226,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen);
   const settings = useUIStore((state) => state.settings);
-  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
+  const setSidebarOpen = useUIStore((state) => state.setSidebarOpen);
   const setMobileSidebarOpen = useUIStore((state) => state.setMobileSidebarOpen);
   const toggleAppearance = useUIStore((state) => state.toggleAppearance);
   const setSettingsModalOpen = useUIStore((state) => state.setSettingsModalOpen);
   const setShortcutsModalOpen = useUIStore((state) => state.setShortcutsModalOpen);
+  const updateSettings = useUIStore((state) => state.updateSettings);
   const incrementStats = useUIStore((state) => state.incrementStats);
 
   const form = useForm<ComposerValues>({
@@ -155,69 +242,52 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const activeChat = chats.find((chat) => chat.id === activeId) || null;
   const messages = activeChat?.messages || [];
 
-  // Authentication is managed by Firebase. Chat history stays in memory until a backend is selected.
+  // Responsive device check
   useEffect(() => {
-    let cancelled = false;
+    const handleResize = () => {
+      const coarsePointer = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+      setIsMobile(window.innerWidth <= 1024 || coarsePointer);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Hydration & initial load
+  useEffect(() => {
+    setChats(readHistory());
+    setHydrated(true);
+
     try {
       const saved = localStorage.getItem("axiom.appearance");
-      if (saved === "dark" || saved === "light") useUIStore.getState().setAppearance(saved);
+      if (saved === "dark" || saved === "light") {
+        useUIStore.getState().setAppearance(saved);
+      }
     } catch {
-      // Browser storage may be unavailable.
+      // browser storage
     }
-    if (guestMode) {
-      setChats([]);
-      setHydrated(true);
-    } else {
+
+    if (!guestMode) {
       try {
-        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
-          if (cancelled) return;
-          setHydrated(true);
-        }, () => {
-          if (!cancelled) setHydrated(true);
+        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (_user) => {
+          // Sync auth state if needed
         });
-        fetch("/api/health", { cache: "no-store" })
-          .then((response) => response.json())
-          .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
-          .catch(() => setChatReady(false));
-        return () => {
-          cancelled = true;
-          unsubscribe();
-        };
+        return () => unsubscribe();
       } catch {
-        setHydrated(true);
-        toast.error("Firebase Authentication is not configured", {
-          description: "Add the Firebase web app environment variables in Vercel.",
-        });
+        // Firebase not fully initialized
       }
     }
-
-    fetch("/api/health", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data: { configured?: boolean }) => setChatReady(Boolean(data.configured)))
-      .catch(() => setChatReady(false));
-    return () => { cancelled = true; };
   }, [guestMode]);
 
-  // Persist appearance
+  // Persist chats to localStorage
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem("axiom.appearance", appearance);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0, MAX_HISTORY)));
     } catch {
       // ignore
     }
-  }, [appearance, hydrated]);
-
-  // Welcome animation
-  useEffect(() => {
-    if (!activeChat && titleRef.current && welcomeRef.current) {
-      const context = gsap.context(() => {
-        gsap.fromTo(titleRef.current, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.52, ease: "power3.out" });
-      }, welcomeRef);
-      return () => context.revert();
-    }
-    return undefined;
-  }, [activeChat]);
+  }, [chats, hydrated]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -233,8 +303,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
       if (isCmdOrCtrl && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        document.getElementById("chat-search")?.focus();
-      } else if (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === "n") {
+        document.getElementById("sidebar-search")?.focus();
+      } else if (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === "o") {
         e.preventDefault();
         startNewChat();
       } else if (isCmdOrCtrl && e.key === ",") {
@@ -261,12 +331,29 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     );
   }, [chats, search]);
 
+  const groupedChats = useMemo(() => {
+    return groupChatsByDate(filteredChats);
+  }, [filteredChats]);
+
+  const currentModel = useMemo(() => {
+    return availableModels.find((m) => m.id === selectedModelId) || availableModels[0];
+  }, [selectedModelId]);
+
+  const selectModel = (model: (typeof availableModels)[number]) => {
+    setSelectedModelId(model.id);
+    updateSettings({ chatStyle: model.style });
+    toast.info(`Switched to ${model.name}`);
+  };
+
   const startNewChat = () => {
-    setActiveId(null);
+    void setActiveId(null);
     setMobileSidebarOpen(false);
     form.reset({ message: "" });
     setAttachment(null);
-    window.setTimeout(() => composerRef.current?.focus(), 50);
+    window.setTimeout(() => {
+      centerComposerRef.current?.focus();
+      composerRef.current?.focus();
+    }, 50);
   };
 
   const stopGeneration = () => {
@@ -277,27 +364,41 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     setIsGenerating(false);
   };
 
-  // Core generation function (supports SSE streaming and JSON fallback)
-  const executeGeneration = async (chatId: string, placeholderId: string, historyToSend: ConversationMessage[]) => {
+  const executeGeneration = async (
+    chatId: string,
+    placeholderId: string,
+    historyToSend: ConversationMessage[]
+  ) => {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsGenerating(true);
 
     try {
+      let authHeader: Record<string, string> = {};
+      if (!guestMode) {
+        try {
+          const user = getFirebaseAuth().currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            authHeader = { Authorization: `Bearer ${token}` };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(!guestMode && getFirebaseAuth().currentUser
-            ? { Authorization: `Bearer ${await getFirebaseAuth().currentUser?.getIdToken()}` }
-            : {}),
+          ...authHeader,
         },
         cache: "no-store",
         signal: controller.signal,
         body: JSON.stringify({
           messages: historyToSend,
           stream: settings.streamResponses,
-          style: settings.chatStyle,
+          style: reasoningEnabled ? "detailed" : settings.chatStyle,
           customSystemPrompt: settings.customSystemPrompt || undefined,
           temperature: settings.temperature,
           guestMode,
@@ -311,7 +412,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
       const contentType = response.headers.get("content-type") || "";
 
-      // Handle SSE streaming response
       if (contentType.includes("text/event-stream") && response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
@@ -336,12 +436,9 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               try {
                 chunk = JSON.parse(dataStr) as { error?: string; text?: string };
               } catch {
-                // Ignore malformed or incomplete SSE data lines only.
                 continue;
               }
 
-              // Handle server errors outside the JSON parse catch. Otherwise
-              // throwing here is swallowed and the UI falsely says no response.
               if (chunk.error) {
                 throw new Error(chunk.error);
               }
@@ -366,46 +463,47 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           }
         }
 
-        // Finalize completed chat
         setChats((current) =>
-          current.map((chat) =>
-            chat.id !== chatId
-              ? chat
-              : {
-                  ...chat,
-                  updatedAt: Date.now(),
-                  messages: chat.messages.map((m) =>
-                    m.id === placeholderId ? { ...m, content: accumulated || "No response received." } : m
-                  ),
-                }
-          ).sort((a, b) => b.updatedAt - a.updatedAt)
+          current
+            .map((chat) =>
+              chat.id !== chatId
+                ? chat
+                : {
+                    ...chat,
+                    updatedAt: Date.now(),
+                    messages: chat.messages.map((m) =>
+                      m.id === placeholderId
+                        ? { ...m, content: accumulated || "I am here to help. What would you like to explore?" }
+                        : m
+                    ),
+                  }
+            )
+            .sort((a, b) => b.updatedAt - a.updatedAt)
         );
       } else {
-        // Handle standard JSON response
         const data = await response.json();
         if (!data.message) {
           throw new Error(data.error || "TIWAT returned an empty response.");
         }
 
         setChats((current) =>
-          current.map((chat) =>
-            chat.id !== chatId
-              ? chat
-              : {
-                  ...chat,
-                  updatedAt: Date.now(),
-                  messages: chat.messages.map((m) =>
-                    m.id === placeholderId ? { ...m, content: data.message } : m
-                  ),
-                }
-          ).sort((a, b) => b.updatedAt - a.updatedAt)
+          current
+            .map((chat) =>
+              chat.id !== chatId
+                ? chat
+                : {
+                    ...chat,
+                    updatedAt: Date.now(),
+                    messages: chat.messages.map((m) =>
+                      m.id === placeholderId ? { ...m, content: data.message } : m
+                    ),
+                  }
+            )
+            .sort((a, b) => b.updatedAt - a.updatedAt)
         );
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        // User voluntarily aborted
-        return;
-      }
+      if (err instanceof Error && err.name === "AbortError") return;
       const errorMsg = err instanceof Error ? err.message : "Something went wrong.";
       setChats((current) =>
         current.map((chat) =>
@@ -431,14 +529,20 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     const text = message.trim();
     if (!text && !attachment) return;
 
-    const apiPrompt =
-      text + (attachment ? `\n\n[Attached text file: ${attachment.name}]\n${attachment.content}` : "");
+    let apiPrompt = text;
+    if (attachment) {
+      apiPrompt = `${text}\n\n[Attached File: ${attachment.name}]\n${attachment.content}`;
+    }
+    if (webSearchEnabled) {
+      apiPrompt = `[Web Search Active] ${apiPrompt}`;
+    }
+
     const chatId = activeChat?.id || uid();
     const placeholderId = uid();
     const userMessage: Message = {
       id: uid(),
       role: "user",
-      content: text + (attachment ? `\n\nAttached file: ${attachment.name}` : ""),
+      content: text + (attachment ? `\n\n📎 Attached file: ${attachment.name}` : ""),
     };
     const placeholder: Message = { id: placeholderId, role: "assistant", content: "" };
     const prior = activeChat?.messages || [];
@@ -457,7 +561,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       setChats((current) => [
         {
           id: chatId,
-          title: titleFrom(text || attachment?.name || "New conversation"),
+          title: titleFrom(text || attachment?.name || "New chat"),
           messages: [userMessage, placeholder],
           updatedAt: Date.now(),
         },
@@ -487,8 +591,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
   };
 
-  const choosePrompt = (prompt: string) => {
-    form.setValue("message", prompt, { shouldDirty: true, shouldValidate: true });
+  const choosePrompt = (promptText: string) => {
+    form.setValue("message", promptText, { shouldDirty: true, shouldValidate: true });
     window.setTimeout(() => {
       void handleFormSubmit();
     }, 0);
@@ -499,7 +603,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     const messageIndex = activeChat.messages.findIndex((m) => m.id === assistantMessageId);
     if (messageIndex <= 0) return;
 
-    // Slice history up to user message right before this assistant message
     const priorMessages = activeChat.messages.slice(0, messageIndex);
     const placeholderId = uid();
 
@@ -528,14 +631,28 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     toast.info("Prompt loaded into composer for editing");
   };
 
-  // Drag and drop attachment handler
-  const handleDragOver = (e: DragEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsDragOver(true);
+  const handleFeedback = (id: string, type: "up" | "down") => {
+    setThumbsState((prev) => {
+      const next = { ...prev };
+      if (next[id] === type) {
+        delete next[id];
+      } else {
+        next[id] = type;
+      }
+      return next;
+    });
+    toast.success("Thank you for the feedback!");
   };
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
+  const copyText = async (id: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      toast.success("Copied to clipboard");
+      window.setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      toast.error("Clipboard access unavailable.");
+    }
   };
 
   const processFile = async (file: File) => {
@@ -545,7 +662,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
     const extension = file.name.split(".").pop()?.toLowerCase() || "";
     const allowed = [
-      "txt", "md", "markdown", "csv", "json", "html", "htm", "log", "xml", "yaml", "yml", "ts", "tsx", "js", "jsx", "css", "py", "sql", "sh"
+      "txt", "md", "markdown", "csv", "json", "html", "htm", "log", "xml", "yaml", "yml", "ts", "tsx", "js", "jsx", "css", "py", "sql", "sh",
     ];
     if (!allowed.includes(extension) && !file.type.startsWith("text/")) {
       toast.error("Unsupported file format", {
@@ -562,6 +679,15 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
   };
 
+  const handleDragOver = (e: DragEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
   const handleDrop = async (e: DragEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -576,17 +702,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     event.currentTarget.value = "";
     if (file) {
       await processFile(file);
-    }
-  };
-
-  const copyText = async (id: string, content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedId(id);
-      toast.success("Copied to clipboard");
-      window.setTimeout(() => setCopiedId(null), 1500);
-    } catch {
-      toast.error("Clipboard access unavailable.");
     }
   };
 
@@ -628,7 +743,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     if (activeId === id) {
       void setActiveId(null);
     }
-    toast.success("Conversation deleted");
+    toast.success("Chat deleted");
   };
 
   const startRename = (chat: Chat) => {
@@ -647,11 +762,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const clearHistory = () => {
     setChats([]);
     void setActiveId(null);
-    if (guestMode) {
-      toast.success("Temporary guest conversation cleared");
-      return;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
     }
-    toast.success("Conversation history cleared");
+    toast.success("Chat history cleared");
   };
 
   const openChat = (id: string) => {
@@ -665,6 +781,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       <SettingsModal />
       <ShortcutsModal />
 
+      {/* Mobile Drawer Backdrop */}
       <button
         type="button"
         className={`mobile-backdrop ${mobileSidebarOpen ? "is-visible" : ""}`}
@@ -674,11 +791,14 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         aria-hidden={!mobileSidebarOpen}
       />
 
-      {/* Sidebar */}
+      {/* ChatGPT-authentic Sidebar */}
       <aside
-        className={`sidebar ${!isMobile && !sidebarOpen ? "is-collapsed " : ""}${mobileSidebarOpen ? "mobile-open" : ""}`}
-        aria-label="Conversation navigation"
+        className={`sidebar ${!isMobile && !sidebarOpen ? "is-collapsed" : ""} ${
+          mobileSidebarOpen ? "mobile-open" : ""
+        }`}
+        aria-label="Chat navigation"
       >
+        {/* Sidebar Brand & Top Action Row */}
         <div className="sidebar-brand-row">
           <a
             className="brand-lockup"
@@ -687,158 +807,195 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               event.preventDefault();
               startNewChat();
             }}
-            aria-label="TIWAT home"
+            aria-label="ChatGPT home"
           >
-            <span className="brand-symbol">
-              <Sparkles size={17} strokeWidth={2.2} />
+            <span className="brand-symbol-circle">
+              <ChatGPTIcon size={16} />
             </span>
-            <span className="brand-word">
-              tiw<em>at</em>
-            </span>
+            <span>TIWAT</span>
           </a>
-          {!isMobile && (
+
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              className="icon-button collapse-toggle"
-              onClick={toggleSidebar}
-              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              className="icon-button"
+              onClick={startNewChat}
+              title="New chat"
+              aria-label="New chat"
             >
-              <PanelLeftClose size={17} />
+              <Plus size={18} />
             </button>
-          )}
-          <button
-            type="button"
-            className="icon-button mobile-close"
-            onClick={() => setMobileSidebarOpen(false)}
-            aria-label="Close sidebar"
-          >
-            <X size={18} />
-          </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => {
+                if (isMobile) {
+                  setMobileSidebarOpen(false);
+                } else {
+                  setSidebarOpen(false);
+                }
+              }}
+              title="Close sidebar"
+              aria-label="Close sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          </div>
         </div>
 
+        {/* Sidebar Top Shortcuts */}
         <div className="sidebar-actions">
-          <button type="button" className="sidebar-action primary" onClick={startNewChat}>
+          <button type="button" className="sidebar-nav-item" onClick={startNewChat}>
             <Plus size={17} />
-            <span>New conversation</span>
+            <span>New chat</span>
           </button>
           <button
             type="button"
-            className="sidebar-action"
+            className="sidebar-nav-item"
             onClick={() => {
-              setMobileSidebarOpen(false);
-              document.getElementById("chat-search")?.focus();
+              document.getElementById("sidebar-search")?.focus();
             }}
           >
             <Search size={16} />
-            <span>Search history</span>
+            <span>Search chats</span>
           </button>
         </div>
 
-        <section className="history-section" aria-label="Recent conversations">
-          <div className="history-heading flex items-center justify-between">
-            <span>Conversations</span>
-            <span className="text-[10px] opacity-75 font-mono">{chats.length}</span>
-          </div>
-          <label className="history-search">
-            <Search size={14} />
+        {/* History Search Bar (Optional expandable) */}
+        <div className="px-1 mb-2">
+          <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] text-[var(--text-tertiary)] focus-within:border-[var(--accent)] text-xs">
+            <Search size={13} />
             <input
-              id="chat-search"
+              id="sidebar-search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search conversations (⌘K)"
-              aria-label="Search conversations"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search (⌘K)"
+              className="w-full bg-transparent border-0 outline-none text-[var(--text)] text-xs placeholder:text-[var(--text-tertiary)]"
             />
-          </label>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-[var(--text-tertiary)] hover:text-[var(--text)]"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ChatGPT Date-Grouped History Section */}
+        <section className="history-section" aria-label="Conversation history">
           <div className="chat-list">
-            {filteredChats.length ? (
-              filteredChats.map((chat) => (
-                <div
-                  className={`chat-history-row group relative ${activeId === chat.id ? "active" : ""}`}
-                  key={chat.id}
-                >
-                  {editingChatId === chat.id ? (
-                    <div className="flex items-center w-full px-2 gap-1.5 py-1">
-                      <input
-                        type="text"
-                        value={editTitleValue}
-                        onChange={(e) => setEditTitleValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveRename(chat.id);
-                          if (e.key === "Escape") setEditingChatId(null);
-                        }}
-                        ref={(el) => el?.focus()}
-                        className="flex-1 bg-[var(--surface-soft)] text-xs text-[var(--text)] px-2 py-1 rounded border border-[var(--line)] outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => saveRename(chat.id)}
-                        className="p-1 text-emerald-500 hover:opacity-80"
-                        aria-label="Save title"
-                      >
-                        <Check size={14} />
-                      </button>
+            {groupedChats.length ? (
+              groupedChats.map(([groupName, groupList]) => (
+                <div key={groupName} className="mb-3">
+                  <div className="history-heading">{groupName}</div>
+                  {groupList.map((chat) => (
+                    <div
+                      className={`chat-history-row group ${activeId === chat.id ? "active" : ""}`}
+                      key={chat.id}
+                    >
+                      {editingChatId === chat.id ? (
+                        <div className="flex items-center w-full px-2 gap-1 py-1">
+                          <input
+                            type="text"
+                            value={editTitleValue}
+                            onChange={(e) => setEditTitleValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveRename(chat.id);
+                              if (e.key === "Escape") setEditingChatId(null);
+                            }}
+                            ref={(el) => el?.focus()}
+                            className="flex-1 bg-[var(--surface-soft)] text-xs text-[var(--text)] px-2 py-1 rounded border border-[var(--line)] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveRename(chat.id)}
+                            className="p-1 text-emerald-500 hover:opacity-80"
+                            aria-label="Save title"
+                          >
+                            <Check size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="chat-history-open"
+                            onClick={() => openChat(chat.id)}
+                            title={chat.title}
+                          >
+                            <span>{chat.title}</span>
+                          </button>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center pr-2 transition-opacity">
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <button
+                                  type="button"
+                                  className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text)] rounded"
+                                  aria-label="Chat options"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal size={14} />
+                                </button>
+                              </DropdownMenu.Trigger>
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                  align="end"
+                                  sideOffset={5}
+                                  className="dropdown-content"
+                                >
+                                  <DropdownMenu.Item
+                                    className="dropdown-item"
+                                    onSelect={() => startRename(chat)}
+                                  >
+                                    <Pencil size={14} />
+                                    <span>Rename</span>
+                                  </DropdownMenu.Item>
+                                  <DropdownMenu.Item
+                                    className="dropdown-item text-red-500 hover:text-red-600"
+                                    onSelect={() => deleteChat(chat.id)}
+                                  >
+                                    <Trash2 size={14} />
+                                    <span>Delete</span>
+                                  </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="chat-history-open"
-                        onClick={() => openChat(chat.id)}
-                        title={chat.title}
-                      >
-                        <MessageCircle size={15} />
-                        <span>{chat.title}</span>
-                      </button>
-                      <div className="hidden group-hover:flex items-center gap-1 pr-1.5">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startRename(chat);
-                          }}
-                          className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text)] rounded"
-                          title="Rename"
-                          aria-label="Rename conversation"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChat(chat.id);
-                          }}
-                          className="p-1 text-[var(--text-tertiary)] hover:text-red-500 rounded"
-                          title="Delete"
-                          aria-label="Delete conversation"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  ))}
                 </div>
               ))
             ) : (
-              <div className="empty-history">
-                {search ? "No matching conversations" : "Your conversations will appear here."}
+              <div className="px-3 py-6 text-center text-xs text-[var(--text-tertiary)]">
+                {search ? "No matching conversations" : "Your chats will appear here"}
               </div>
             )}
           </div>
         </section>
 
-        <div className="sidebar-copy">Thoughtfully built for high-leverage work.</div>
-
+        {/* ChatGPT User Account Footer */}
         <div className="sidebar-footer">
-          <div className="user-avatar">{guestMode ? "G" : "T"}</div>
-          <div className="sidebar-footer-text">
-            <strong>{guestMode ? "Guest session" : "Your TIWAT workspace"}</strong>
-            <span>{guestMode ? "Temporary · Not saved" : `${settings.chatStyle} Mode`}</span>
+          <div className="user-avatar-circle">
+            {guestMode ? "G" : "T"}
           </div>
+          <div className="sidebar-footer-text">
+            <strong>{guestMode ? "Guest Account" : "Personal Workspace"}</strong>
+            <span>{currentModel.name}</span>
+          </div>
+
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button type="button" className="icon-button" aria-label="Workspace settings menu">
-                <MoreHorizontal size={18} />
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="User settings & preferences"
+              >
+                <MoreHorizontal size={17} />
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
@@ -848,42 +1005,55 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   onSelect={() => setSettingsModalOpen(true)}
                 >
                   <Settings size={15} />
-                  Workspace settings
+                  <span>Settings</span>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="dropdown-item"
                   onSelect={() => setShortcutsModalOpen(true)}
                 >
                   <Command size={15} />
-                  Keyboard shortcuts
+                  <span>Keyboard shortcuts</span>
                 </DropdownMenu.Item>
-                <DropdownMenu.Separator className="dropdown-separator" />
-                {guestMode ? (
-                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { window.location.href = "/login"; }}>
-                    <LogIn size={15} /> Sign in to save chats
-                  </DropdownMenu.Item>
-                ) : (
-                  <DropdownMenu.Item className="dropdown-item" onSelect={() => { void signOut(getFirebaseAuth()).finally(() => { window.location.href = "/login"; }); }}>
-                    <LogOut size={15} /> Sign out
-                  </DropdownMenu.Item>
-                )}
                 <DropdownMenu.Separator className="dropdown-separator" />
                 <DropdownMenu.Item className="dropdown-item" onSelect={toggleAppearance}>
                   {appearance === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-                  {appearance === "dark" ? "Use light appearance" : "Use dark appearance"}
+                  <span>{appearance === "dark" ? "Light mode" : "Dark mode"}</span>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item className="dropdown-item" onSelect={exportChatMarkdown}>
                   <FileCode size={15} />
-                  Export as Markdown
+                  <span>Export as Markdown</span>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item className="dropdown-item" onSelect={exportChatJSON}>
                   <FileJson size={15} />
-                  Export as JSON
+                  <span>Export as JSON</span>
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="dropdown-separator" />
+                {guestMode ? (
+                  <DropdownMenu.Item
+                    className="dropdown-item"
+                    onSelect={() => {
+                      window.location.href = "/login";
+                    }}
+                  >
+                    <LogIn size={15} />
+                    <span>Sign in to save chats</span>
+                  </DropdownMenu.Item>
+                ) : (
+                  <DropdownMenu.Item
+                    className="dropdown-item text-red-500"
+                    onSelect={() => {
+                      void signOut(getFirebaseAuth()).finally(() => {
+                        window.location.href = "/login";
+                      });
+                    }}
+                  >
+                    <LogOut size={15} />
+                    <span>Log out</span>
+                  </DropdownMenu.Item>
+                )}
                 <DropdownMenu.Item className="dropdown-item text-red-500" onSelect={clearHistory}>
                   <Trash2 size={15} />
-                  Clear all history
+                  <span>Clear all chats</span>
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
@@ -893,218 +1063,414 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
       {/* Main Panel */}
       <main className="main-panel">
+        {/* ChatGPT Topbar */}
         <header className="topbar">
           <div className="topbar-left">
-            <button
-              type="button"
-              className="icon-button mobile-menu"
-              onClick={() => setMobileSidebarOpen(true)}
-              aria-label="Open navigation"
-            >
-              <Menu size={18} />
-            </button>
-            <button
-              type="button"
-              className="icon-button desktop-sidebar-toggle"
-              onClick={toggleSidebar}
-              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              <PanelLeftClose size={17} className={!sidebarOpen ? "rotate-180 transition-transform" : "transition-transform"} />
-            </button>
-            <div className="topbar-title">{activeChat?.title || "TIWAT Workspace"}</div>
-            <ChevronDown size={14} className="title-caret" />
-          </div>
-          <div className="topbar-right">
-            <button
-              type="button"
-              onClick={() => setSettingsModalOpen(true)}
-              className="status-pill hover:border-[var(--accent)] cursor-pointer transition-colors"
-              title="Click to view workspace settings"
-            >
-              <span className="status-dot" />
-              {chatReady === false ? "Setup needed" : `TIWAT · ${settings.chatStyle}`}
-            </button>
+            {/* Sidebar Expand Button (when collapsed or on mobile) */}
+            {(!sidebarOpen || isMobile) && (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => {
+                  if (isMobile) {
+                    setMobileSidebarOpen(true);
+                  } else {
+                    setSidebarOpen(true);
+                  }
+                }}
+                title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-label="Toggle sidebar"
+              >
+                <PanelLeft size={18} />
+              </button>
+            )}
+
+            {/* ChatGPT Model Selector Dropdown */}
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button type="button" className="icon-button" aria-label="Conversation actions">
-                  <MoreHorizontal size={19} />
+                <button
+                  type="button"
+                  className="model-picker-btn"
+                  aria-label="Select model"
+                >
+                  <span>{currentModel.name}</span>
+                  <ChevronDown size={14} className="text-[var(--text-tertiary)]" />
                 </button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content align="end" sideOffset={7} className="dropdown-content">
-                  <DropdownMenu.Item className="dropdown-item" onSelect={startNewChat}>
-                    <Plus size={15} />
-                    New conversation
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item className="dropdown-item" onSelect={exportChatMarkdown}>
-                    <ArrowDownToLine size={15} />
-                    Export conversation
-                  </DropdownMenu.Item>
+                <DropdownMenu.Content
+                  align="start"
+                  sideOffset={6}
+                  className="dropdown-content w-64"
+                >
+                  <div className="px-2 py-1.5 text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                    Model
+                  </div>
+                  {availableModels.map((m) => (
+                    <DropdownMenu.Item
+                      key={m.id}
+                      className="dropdown-item flex items-center justify-between"
+                      onSelect={() => selectModel(m)}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-semibold text-xs flex items-center gap-1.5">
+                          <span>{m.name}</span>
+                          <span className="text-[10px] px-1 py-0.2 bg-[var(--surface-soft)] rounded text-[var(--text-secondary)] font-normal">
+                            {m.badge}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[var(--text-tertiary)] leading-tight mt-0.5 truncate">
+                          {m.description}
+                        </div>
+                      </div>
+                      {selectedModelId === m.id && (
+                        <Check size={14} className="text-[var(--accent)] shrink-0" />
+                      )}
+                    </DropdownMenu.Item>
+                  ))}
+                  <DropdownMenu.Separator className="dropdown-separator" />
                   <DropdownMenu.Item
-                    className="dropdown-item"
+                    className="dropdown-item text-xs"
                     onSelect={() => setSettingsModalOpen(true)}
                   >
-                    <Settings size={15} />
-                    Workspace settings
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="dropdown-separator" />
-                  <DropdownMenu.Item className="dropdown-item" onSelect={toggleAppearance}>
-                    {appearance === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-                    {appearance === "dark" ? "Light appearance" : "Dark appearance"}
+                    <Settings size={14} />
+                    <span>More model settings…</span>
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+
+            <button
+              type="button"
+              className="icon-button"
+              onClick={startNewChat}
+              title="New chat"
+              aria-label="New chat"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          <div className="topbar-right">
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              className="icon-button"
+              onClick={toggleAppearance}
+              title={appearance === "dark" ? "Light mode" : "Dark mode"}
+              aria-label="Toggle color theme"
+            >
+              {appearance === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+
+            {/* Settings Trigger */}
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setSettingsModalOpen(true)}
+              title="Settings"
+              aria-label="Open settings"
+            >
+              <Settings size={17} />
+            </button>
+
+            {/* Auth status button */}
+            {guestMode ? (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/login";
+                }}
+                className="hidden sm:inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-[var(--text)] text-[var(--page)] hover:opacity-90 transition-opacity"
+              >
+                Sign in
+              </button>
+            ) : (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    className="w-7 h-7 rounded-full bg-[var(--text)] text-[var(--page)] flex items-center justify-center text-xs font-semibold ml-1 cursor-pointer"
+                    aria-label="User profile"
+                  >
+                    T
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content align="end" sideOffset={6} className="dropdown-content">
+                    <DropdownMenu.Item
+                      className="dropdown-item"
+                      onSelect={() => setSettingsModalOpen(true)}
+                    >
+                      <Settings size={14} />
+                      <span>Settings</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className="dropdown-separator" />
+                    <DropdownMenu.Item
+                      className="dropdown-item text-red-500"
+                      onSelect={() => {
+                        void signOut(getFirebaseAuth()).finally(() => {
+                          window.location.href = "/login";
+                        });
+                      }}
+                    >
+                      <LogOut size={14} />
+                      <span>Sign out</span>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            )}
           </div>
         </header>
 
-        {/* Scrollable Conversation View */}
-        <div className="main-scroll" key={activeChat?.id || "welcome"}>
-          {!activeChat ? (
-            <div className="welcome-wrap" ref={welcomeRef}>
-              <div className="welcome-orb">
-                <Sparkles size={25} />
-              </div>
-              <p className="welcome-eyebrow">A calmer way forward</p>
-              <h1 className="welcome-title" ref={titleRef}>
-                What can I help you
-                <br />
-                figure out today?
-              </h1>
-              <p className="welcome-subtitle">
-                A thoughtful workspace for complex ideas, deep research, and high-impact work.
-              </p>
-              <div className="prompt-grid">
-                {suggestions.map((suggestion) => {
-                  const Icon = suggestion.icon;
+        {/* Scrollable Center Canvas */}
+        <div className="main-scroll" key={activeChat?.id || "empty"}>
+          {!activeChat || messages.length === 0 ? (
+            /* ChatGPT Iconic Empty State: Centered Greeting & Central Floating Input */
+            <div className="welcome-container">
+              <h1 className="welcome-title-chatgpt">What can I help with?</h1>
+
+              {/* Central Floating Composer */}
+              <form
+                className={`composer-card-chatgpt mb-4 ${
+                  isDragOver ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/30" : ""
+                }`}
+                onSubmit={handleFormSubmit}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {attachment && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-2 rounded-lg bg-[var(--surface-soft)] text-xs text-[var(--text-secondary)] border border-[var(--line)]">
+                    <FileText size={13} />
+                    <span className="truncate max-w-[200px]">{attachment.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachment(null)}
+                      className="p-0.5 hover:text-[var(--text)]"
+                      aria-label="Remove attachment"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                <textarea
+                  {...form.register("message")}
+                  ref={(el) => {
+                    form.register("message").ref(el);
+                    centerComposerRef.current = el;
+                  }}
+                  onKeyDown={handleKeyDown}
+                  rows={2}
+                  placeholder="Message TIWAT"
+                  aria-label="Message TIWAT"
+                  autoComplete="off"
+                />
+
+                <div className="composer-toolbar-chatgpt">
+                  <div className="flex items-center gap-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.log,.xml,.yaml,.yml,.ts,.tsx,.js,.jsx,.css,.py,.sql,.sh,text/*"
+                      onChange={addAttachment}
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach file"
+                      aria-label="Attach file"
+                    >
+                      <Paperclip size={17} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`icon-button ${webSearchEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                      onClick={() => {
+                        setWebSearchEnabled((prev) => !prev);
+                        toast.info(webSearchEnabled ? "Web search disabled" : "Web search enabled");
+                      }}
+                      title="Search web"
+                      aria-label="Search web"
+                    >
+                      <Globe size={17} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`icon-button ${reasoningEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                      onClick={() => {
+                        setReasoningEnabled((prev) => !prev);
+                        toast.info(reasoningEnabled ? "Standard mode" : "Deep reasoning mode active");
+                      }}
+                      title="Reasoning mode"
+                      aria-label="Reasoning mode"
+                    >
+                      <Lightbulb size={17} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center">
+                    <button
+                      type="submit"
+                      disabled={!draft.trim() && !attachment}
+                      className="send-button-circle"
+                      aria-label="Send message"
+                    >
+                      <ArrowUp size={16} strokeWidth={2.4} />
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Suggestion Chips Below Center Input */}
+              <div className="welcome-prompt-grid">
+                {promptSuggestions.map((item) => {
+                  const Icon = item.icon;
                   return (
                     <button
                       type="button"
-                      key={suggestion.title}
-                      className="prompt-card"
-                      onClick={() => choosePrompt(suggestion.prompt)}
+                      key={item.title}
+                      className="welcome-prompt-card"
+                      onClick={() => choosePrompt(item.prompt)}
                     >
-                      <span className="prompt-icon">
-                        <Icon size={16} />
-                      </span>
-                      <span className="prompt-copy">
-                        <strong>{suggestion.title}</strong>
-                        <span>{suggestion.description}</span>
-                      </span>
+                      <Icon size={16} className="text-[var(--text-secondary)] shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-[var(--text)]">{item.title}</div>
+                        <div className="text-[11px] text-[var(--text-tertiary)] truncate">{item.subtitle}</div>
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
           ) : (
-            <div className="conversation" aria-live="polite">
+            /* Active Conversation View */
+            <div className="conversation-wrap" aria-live="polite">
               <AnimatePresence initial={false}>
                 {messages.map((message) => (
-                  <motion.article
+                  <motion.div
                     key={message.id}
                     layout
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    transition={{ duration: 0.19, ease: "easeOut" }}
-                    className={`message-row ${message.role === "user" ? "user" : "assistant"}`}
+                    transition={{ duration: 0.16, ease: "easeOut" }}
                   >
-                    {message.role === "assistant" && (
-                      <div className="message-avatar">
-                        <Sparkles size={15} />
-                      </div>
-                    )}
-                    <div className="message-body">
-                      {message.role === "assistant" && (
-                        <div className="message-author flex items-center justify-between">
-                          <span>TIWAT</span>
-                        </div>
-                      )}
-                      {message.role === "user" ? (
-                        <div className="group relative">
-                          <div className="user-bubble">{message.content}</div>
-                          <div className="message-actions opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                    {message.role === "user" ? (
+                      /* User Message: Clean right-aligned pill bubble */
+                      <div className="message-row-user group">
+                        <div className="flex flex-col items-end">
+                          <div className="user-bubble-chatgpt">{message.content}</div>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 mt-1.5 mr-2 text-[11px] text-[var(--text-tertiary)] transition-opacity">
                             <button
                               type="button"
-                              className="message-action"
                               onClick={() => handleEditMessage(message.content)}
+                              className="hover:text-[var(--text)] flex items-center gap-1"
                               title="Edit prompt"
-                              aria-label="Edit message"
                             >
-                              <Edit2 size={12} />
+                              <Pencil size={11} />
                               <span>Edit</span>
                             </button>
                             <button
                               type="button"
-                              className="message-action"
                               onClick={() => void copyText(message.id, message.content)}
-                              aria-label="Copy prompt"
+                              className="hover:text-[var(--text)] flex items-center gap-1"
+                              title="Copy prompt"
                             >
-                              {copiedId === message.id ? <Check size={12} /> : <Copy size={12} />}
+                              {copiedId === message.id ? <Check size={11} /> : <Copy size={11} />}
                               <span>{copiedId === message.id ? "Copied" : "Copy"}</span>
                             </button>
                           </div>
                         </div>
-                      ) : message.content ? (
-                        <div className="markdown-body">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeHighlight]}
-                            components={{
-                              code({ className, children, ...props }) {
-                                const match = /language-(\w+)/.exec(className || "");
-                                const codeString = String(children).replace(/\n$/, "");
-                                if (match || codeString.includes("\n")) {
-                                  return (
-                                    <CodeBlock language={match?.[1] || "code"}>
-                                      {codeString}
-                                    </CodeBlock>
-                                  );
-                                }
-                                return (
-                                  <code className={className} {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
+                      </div>
+                    ) : (
+                      /* Assistant Message: Left-aligned directly on canvas with ChatGPT spiral badge */
+                      <div className="message-row-assistant">
+                        <div className="assistant-avatar-badge" title="TIWAT">
+                          <ChatGPTIcon size={16} />
                         </div>
-                      ) : (
-                        <div className="thinking-row" role="status" aria-label="Thinking">
-                          <span />
-                          <span />
-                          <span />
+
+                        <div className="assistant-body">
+                          {message.content ? (
+                            <div className="markdown-body">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeHighlight]}
+                                components={{
+                                  code({ className, children, ...props }) {
+                                    const match = /language-(\w+)/.exec(className || "");
+                                    const codeString = String(children).replace(/\n$/, "");
+                                    if (match || codeString.includes("\n")) {
+                                      return (
+                                        <CodeBlock language={match?.[1] || "code"}>
+                                          {codeString}
+                                        </CodeBlock>
+                                      );
+                                    }
+                                    return (
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  },
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            /* ChatGPT Thinking / Streaming pulse */
+                            <div className="flex items-center gap-1.5 py-2" role="status" aria-label="Thinking">
+                              <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse" />
+                              <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse delay-150" />
+                              <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse delay-300" />
+                            </div>
+                          )}
+
+                          {/* Assistant Action Bar */}
+                          {message.content && (
+                            <div className="message-actions-bar">
+                              <button
+                                type="button"
+                                className="message-action-btn"
+                                onClick={() => void copyText(message.id, message.content)}
+                                title="Copy response"
+                              >
+                                {copiedId === message.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                              </button>
+                              <button
+                                type="button"
+                                className={`message-action-btn ${thumbsState[message.id] === "up" ? "text-emerald-500" : ""}`}
+                                onClick={() => handleFeedback(message.id, "up")}
+                                title="Good response"
+                              >
+                                <ThumbsUp size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className={`message-action-btn ${thumbsState[message.id] === "down" ? "text-red-500" : ""}`}
+                                onClick={() => handleFeedback(message.id, "down")}
+                                title="Bad response"
+                              >
+                                <ThumbsDown size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="message-action-btn"
+                                onClick={() => handleRegenerate(message.id)}
+                                disabled={isGenerating}
+                                title="Regenerate"
+                              >
+                                <RotateCcw size={13} />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {message.role === "assistant" && message.content && (
-                        <div className="message-actions">
-                          <button
-                            type="button"
-                            className="message-action"
-                            onClick={() => void copyText(message.id, message.content)}
-                            aria-label="Copy response"
-                          >
-                            {copiedId === message.id ? <Check size={13} /> : <Copy size={13} />}
-                            <span>{copiedId === message.id ? "Copied" : "Copy"}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="message-action"
-                            onClick={() => handleRegenerate(message.id)}
-                            disabled={isGenerating}
-                            aria-label="Regenerate response"
-                          >
-                            <RefreshCw size={12} />
-                            <span>Regenerate</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.article>
+                      </div>
+                    )}
+                  </motion.div>
                 ))}
               </AnimatePresence>
               <div ref={bottomRef} />
@@ -1112,108 +1478,119 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           )}
         </div>
 
-        {/* Composer Zone with Drag-and-Drop */}
-        <div className="composer-zone">
-          <div className="composer-container">
+        {/* Sticky Bottom Composer (Active when messages exist) */}
+        {activeChat && messages.length > 0 && (
+          <div className="composer-zone-chatgpt">
             <form
-              className={`composer transition-all ${isDragOver ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/30" : ""}`}
+              className={`composer-card-chatgpt ${
+                isDragOver ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/30" : ""
+              }`}
               onSubmit={handleFormSubmit}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
               {attachment && (
-                <div className="attachment-chip">
-                  <FileText size={14} />
-                  <span>
-                    {attachment.name} · {Math.max(1, Math.round(attachment.size / 1024))} KB
-                  </span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-1.5 rounded-lg bg-[var(--surface-soft)] text-xs text-[var(--text-secondary)] border border-[var(--line)]">
+                  <FileText size={13} />
+                  <span className="truncate max-w-[200px]">{attachment.name}</span>
                   <button
                     type="button"
-                    className="icon-button"
-                    aria-label="Remove attachment"
                     onClick={() => setAttachment(null)}
+                    className="p-0.5 hover:text-[var(--text)]"
+                    aria-label="Remove attachment"
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </button>
                 </div>
               )}
               <textarea
                 {...form.register("message")}
-                ref={(element) => {
-                  form.register("message").ref(element);
-                  composerRef.current = element;
+                ref={(el) => {
+                  form.register("message").ref(el);
+                  composerRef.current = el;
                 }}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder={isDragOver ? "Drop file to attach…" : "Message TIWAT… (Enter to send, Shift+Enter for newline)"}
+                placeholder="Message TIWAT"
                 aria-label="Message TIWAT"
                 autoComplete="off"
               />
-              <div className="composer-tools">
-                <div className="composer-tool-group">
+
+              <div className="composer-toolbar-chatgpt">
+                <div className="flex items-center gap-1">
                   <input
                     ref={fileInputRef}
-                    className="hidden-file-input"
                     type="file"
+                    className="hidden"
                     accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.log,.xml,.yaml,.yml,.ts,.tsx,.js,.jsx,.css,.py,.sql,.sh,text/*"
                     onChange={addAttachment}
                   />
                   <button
                     type="button"
-                    className="composer-tool labelled"
+                    className="icon-button"
                     onClick={() => fileInputRef.current?.click()}
-                    aria-label="Attach a text or code file"
+                    title="Attach file"
+                    aria-label="Attach file"
                   >
-                    <Paperclip size={16} />
-                    <span>Attach</span>
+                    <Paperclip size={17} />
                   </button>
                   <button
                     type="button"
-                    className="composer-tool labelled"
-                    onClick={() => setShortcutsModalOpen(true)}
-                    aria-label="Keyboard shortcuts"
+                    className={`icon-button ${webSearchEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                    onClick={() => {
+                      setWebSearchEnabled((prev) => !prev);
+                      toast.info(webSearchEnabled ? "Web search disabled" : "Web search enabled");
+                    }}
+                    title="Search web"
+                    aria-label="Search web"
                   >
-                    <Command size={14} />
-                    <span>Shortcuts</span>
+                    <Globe size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`icon-button ${reasoningEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                    onClick={() => {
+                      setReasoningEnabled((prev) => !prev);
+                      toast.info(reasoningEnabled ? "Standard mode" : "Deep reasoning mode active");
+                    }}
+                    title="Reasoning mode"
+                    aria-label="Reasoning mode"
+                  >
+                    <Lightbulb size={17} />
                   </button>
                 </div>
-                <div className="composer-tool-group">
+
+                <div className="flex items-center">
                   {isGenerating ? (
                     <button
                       type="button"
-                      className="composer-tool stop"
+                      className="send-button-circle stop-btn"
                       onClick={stopGeneration}
+                      title="Stop generating"
                       aria-label="Stop generating"
                     >
-                      <CircleStop size={16} />
+                      <Square size={13} fill="currentColor" />
                     </button>
                   ) : (
                     <button
                       type="submit"
-                      className="composer-tool send"
                       disabled={!draft.trim() && !attachment}
+                      className="send-button-circle"
+                      title="Send message"
                       aria-label="Send message"
                     >
-                      <ArrowUp size={18} strokeWidth={2.4} />
+                      <ArrowUp size={16} strokeWidth={2.4} />
                     </button>
                   )}
                 </div>
               </div>
             </form>
-            <div className="composer-hint flex items-center justify-center gap-2">
-              <span>TIWAT can make mistakes. Verify important facts.</span>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => setSettingsModalOpen(true)}
-                className="underline hover:text-[var(--text)] transition-colors"
-              >
-                Settings
-              </button>
+            <div className="disclaimer-chatgpt">
+              TIWAT can make mistakes. Check important info.
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

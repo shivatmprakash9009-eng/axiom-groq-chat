@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>TIWAT Maskable Icon</title>
   <rect width="512" height="512" fill="#09090b"/>
   <path d="M160 170h192v48h-72v124h-48V218h-72z" fill="#fafafa"/>
   <circle cx="330" cy="330" r="24" fill="#a78bfa"/>
