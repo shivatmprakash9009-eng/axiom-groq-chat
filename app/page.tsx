@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ChatEntry } from "@/components/auth/chat-entry";
 import { ChatWorkspace } from "@/components/chat-workspace";
 
 export default function HomePage() {
@@ -15,7 +16,9 @@ export default function HomePage() {
         </main>
       }
     >
-      <ChatWorkspace guestMode={false} />
+      <ChatEntry>
+        <ChatWorkspace guestMode={false} />
+      </ChatEntry>
     </Suspense>
   );
 }

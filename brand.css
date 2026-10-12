@@ -1,4 +1,4 @@
-/* ChatGPT-authentic design tokens (source: https://www.chatgpt.com) */
+/* TIWAT design tokens: calm neutral surfaces with an indigo/violet brand accent */
 :root {
   --text-primary: #0d0d0d;
   --text-secondary: #5d5d5d;
@@ -13,8 +13,8 @@
   --border: rgba(0, 0, 0, 0.08);
   --border-strong: #e5e5e5;
   --fill-subtle: #f4f4f4;
-  --chatgpt-green: #10a37f;
-  --chatgpt-green-hover: #1a7f64;
+  --brand-accent: #6366f1;
+  --brand-accent-hover: #4f46e5;
   --radius-composer: 26px;
   --radius-bubble: 24px;
   --radius-pill: 9999px;

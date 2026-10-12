@@ -51,10 +51,10 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import { ChatGPTIcon } from "@/components/chatgpt-icon";
 import { CodeBlock } from "@/components/code-block";
 import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
+import { TiwatLogo } from "@/components/tiwat-logo";
 import type { ComposerValues, ConversationMessage } from "@/lib/ai/schema";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { useUIStore } from "@/stores/ui-store";
@@ -791,7 +791,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         aria-hidden={!mobileSidebarOpen}
       />
 
-      {/* ChatGPT-authentic Sidebar */}
+      {/* Sidebar */}
       <aside
         className={`sidebar ${!isMobile && !sidebarOpen ? "is-collapsed" : ""} ${
           mobileSidebarOpen ? "mobile-open" : ""
@@ -807,10 +807,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               event.preventDefault();
               startNewChat();
             }}
-            aria-label="ChatGPT home"
+            aria-label="TIWAT home"
           >
             <span className="brand-symbol-circle">
-              <ChatGPTIcon size={16} />
+              <TiwatLogo size={28} />
             </span>
             <span>TIWAT</span>
           </a>
@@ -884,7 +884,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           </div>
         </div>
 
-        {/* ChatGPT Date-Grouped History Section */}
+        {/* Date-Grouped History Section */}
         <section className="history-section" aria-label="Conversation history">
           <div className="chat-list">
             {groupedChats.length ? (
@@ -978,7 +978,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           </div>
         </section>
 
-        {/* ChatGPT User Account Footer */}
+        {/* User Account Footer */}
         <div className="sidebar-footer">
           <div className="user-avatar-circle">
             {guestMode ? "G" : "T"}
@@ -1063,7 +1063,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
       {/* Main Panel */}
       <main className="main-panel">
-        {/* ChatGPT Topbar */}
+        {/* Topbar */}
         <header className="topbar">
           <div className="topbar-left">
             {/* Sidebar Expand Button (when collapsed or on mobile) */}
@@ -1085,7 +1085,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               </button>
             )}
 
-            {/* ChatGPT Model Selector Dropdown */}
+            {/* Model Selector Dropdown */}
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <button
@@ -1227,7 +1227,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         {/* Scrollable Center Canvas */}
         <div className="main-scroll" key={activeChat?.id || "empty"}>
           {!activeChat || messages.length === 0 ? (
-            /* ChatGPT Iconic Empty State: Centered Greeting & Central Floating Input */
+            /* Iconic Empty State: Centered Greeting & Central Floating Input */
             <div className="welcome-container">
               <h1 className="welcome-title-chatgpt">What can I help with?</h1>
 
@@ -1386,10 +1386,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                         </div>
                       </div>
                     ) : (
-                      /* Assistant Message: Left-aligned directly on canvas with ChatGPT spiral badge */
+                      /* Assistant Message: Left-aligned directly on canvas with TIWAT logo badge */
                       <div className="message-row-assistant">
                         <div className="assistant-avatar-badge" title="TIWAT">
-                          <ChatGPTIcon size={16} />
+                          <TiwatLogo size={28} />
                         </div>
 
                         <div className="assistant-body">
@@ -1421,7 +1421,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                               </ReactMarkdown>
                             </div>
                           ) : (
-                            /* ChatGPT Thinking / Streaming pulse */
+                            /* Thinking / Streaming pulse */
                             <div className="flex items-center gap-1.5 py-2" role="status" aria-label="Thinking">
                               <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse" />
                               <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse delay-150" />

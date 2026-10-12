@@ -112,7 +112,7 @@ textarea:focus-visible,
   color: var(--text);
 }
 
-/* ChatGPT Sidebar */
+/* Sidebar */
 .sidebar {
   z-index: 30;
   display: flex;
@@ -169,9 +169,9 @@ textarea:focus-visible,
   height: 28px;
   flex: 0 0 28px;
   place-items: center;
+  overflow: hidden;
   border-radius: 50%;
-  background: var(--text);
-  color: var(--page);
+  background: transparent;
 }
 
 .icon-button {
@@ -334,7 +334,7 @@ textarea:focus-visible,
   white-space: nowrap;
 }
 
-/* Main Panel & ChatGPT Topbar */
+/* Main Panel & Topbar */
 .main-panel {
   position: relative;
   display: flex;
@@ -395,7 +395,7 @@ textarea:focus-visible,
   scrollbar-width: thin;
 }
 
-/* ChatGPT Welcome Screen */
+/* Welcome Screen */
 .welcome-container {
   display: flex;
   width: 100%;
@@ -491,10 +491,9 @@ textarea:focus-visible,
   flex: 0 0 28px;
   place-items: center;
   margin-top: 3px;
+  overflow: hidden;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  background: transparent;
 }
 
 .assistant-body {
@@ -609,7 +608,7 @@ textarea:focus-visible,
   color: var(--text);
 }
 
-/* ChatGPT Composer */
+/* Composer */
 .composer-zone-chatgpt {
   z-index: 10;
   width: 100%;
