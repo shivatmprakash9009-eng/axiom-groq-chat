@@ -210,7 +210,7 @@ function TypewriterMarkdown({
 }) {
   const [visibleCount, setVisibleCount] = useState(0);
   const completedRef = useRef(false);
-  const words = content.match(/\\S+\\s*/g) || [];
+  const words = content.match(/\S+\s*/g) || [];
   const visibleText = words.slice(0, visibleCount).join("");
 
   useEffect(() => {
@@ -240,9 +240,9 @@ function TypewriterMarkdown({
           rehypePlugins={[rehypeHighlight]}
           components={{
             code({ className, children, ...props }) {
-              const match = /language-(\\w+)/.exec(className || "");
-              const codeString = String(children).replace(/\\n$/, "");
-              if (match || codeString.includes("\\n")) {
+              const match = /language-(\w+)/.exec(className || "");
+              const codeString = String(children).replace(/\n$/, "");
+              if (match || codeString.includes("\n")) {
                 return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
               }
               return <code className={className} {...props}>{children}</code>;
