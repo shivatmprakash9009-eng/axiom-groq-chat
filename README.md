@@ -2,7 +2,7 @@
 
 ### Think clearly. Move faster.
 
-TIWAT is a modern, responsive AI workspace for thinking, writing, research, and software development. It combines a focused chat interface with a server-side, multi-provider language-model router, streamed responses, conversation tools, configurable response styles, and account sign-in.
+TIWAT is an open-source, modern AI workspace for thinking, writing, research, and software development. It combines a focused chat interface with a server-side, multi-provider language-model router, streamed responses, conversation tools, configurable response styles, and account sign-in. The project is built with Next.js, React, and TypeScript, and is released under the MIT License.
 
 <p align="center">
   <a href="https://axiom-groq-chat.vercel.app">Live application</a> ·
