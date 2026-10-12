@@ -1291,3 +1291,33 @@ textarea:focus-visible,
 .auth-wordmark {
   font-family: var(--font-display);
 }
+
+
+/* Word-by-word assistant response reveal */
+.typewriter-response {
+  overflow-wrap: anywhere;
+}
+
+.typewriter-caret {
+  display: inline-block;
+  width: 0.48em;
+  height: 1em;
+  margin-left: 0.12em;
+  vertical-align: -0.12em;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: tiwat-caret-blink 0.9s steps(2, start) infinite;
+}
+
+@keyframes tiwat-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typewriter-caret {
+    animation: none;
+    opacity: 0.45;
+  }
+}
