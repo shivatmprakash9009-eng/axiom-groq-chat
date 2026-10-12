@@ -819,15 +819,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <button
               type="button"
               className="icon-button"
-              onClick={startNewChat}
-              title="New chat"
-              aria-label="New chat"
-            >
-              <Plus size={18} />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
               onClick={() => {
                 if (isMobile) {
                   setMobileSidebarOpen(false);
@@ -849,39 +840,30 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <Plus size={17} />
             <span>New chat</span>
           </button>
-          <button
-            type="button"
-            className="sidebar-nav-item"
-            onClick={() => {
-              document.getElementById("sidebar-search")?.focus();
-            }}
-          >
-            <Search size={16} />
-            <span>Search chats</span>
-          </button>
         </div>
 
-        {/* History Search Bar (Optional expandable) */}
-        <div className="px-1 mb-2">
-          <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] text-[var(--text-tertiary)] focus-within:border-[var(--accent)] text-xs">
-            <Search size={13} />
-            <input
-              id="sidebar-search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search (⌘K)"
-              className="w-full bg-transparent border-0 outline-none text-[var(--text)] text-xs placeholder:text-[var(--text-tertiary)]"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="text-[var(--text-tertiary)] hover:text-[var(--text)]"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+        {/* Chat search */}
+        <div className="sidebar-search">
+          <Search size={14} aria-hidden="true" />
+          <input
+            id="sidebar-search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search chats"
+            aria-label="Search chats"
+          />
+          {search ? (
+            <button
+              type="button"
+              className="sidebar-search-clear"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+            >
+              <X size={12} />
+            </button>
+          ) : (
+            <kbd className="kbd-hint">⌘K</kbd>
+          )}
         </div>
 
         {/* Date-Grouped History Section */}
@@ -1229,7 +1211,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           {!activeChat || messages.length === 0 ? (
             /* Iconic Empty State: Centered Greeting & Central Floating Input */
             <div className="welcome-container">
-              <h1 className="welcome-title-chatgpt">What can I help with?</h1>
+              <h1 className="welcome-title-chatgpt">What are we working on?</h1>
+              <p className="welcome-sub">
+                Ask in English or Hinglish. Attach a file or turn on web search when you need it.
+              </p>
 
               {/* Central Floating Composer */}
               <form
@@ -1336,7 +1321,9 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                       className="welcome-prompt-card"
                       onClick={() => choosePrompt(item.prompt)}
                     >
-                      <Icon size={16} className="text-[var(--text-secondary)] shrink-0" />
+                      <span className="prompt-icon">
+                        <Icon size={17} />
+                      </span>
                       <div className="min-w-0">
                         <div className="font-semibold text-xs text-[var(--text)]">{item.title}</div>
                         <div className="text-[11px] text-[var(--text-tertiary)] truncate">{item.subtitle}</div>
