@@ -1,6 +1,6 @@
 import { ChatEntry } from "@/components/auth/chat-entry";
-import { SettingsPage } from "@/components/settings-page";
 import { ChatWorkspace } from "@/components/chat-workspace";
+import { SettingsPage } from "@/components/settings-page";
 
 export default async function ChatPage({
   searchParams,
