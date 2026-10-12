@@ -52,7 +52,6 @@ import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
-import { SettingsModal } from "@/components/settings-modal";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
 import { TiwatLogo } from "@/components/tiwat-logo";
 import type { ComposerValues, ConversationMessage } from "@/lib/ai/schema";
@@ -287,7 +286,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen);
   const setMobileSidebarOpen = useUIStore((state) => state.setMobileSidebarOpen);
   const toggleAppearance = useUIStore((state) => state.toggleAppearance);
-  const setSettingsModalOpen = useUIStore((state) => state.setSettingsModalOpen);
   const setShortcutsModalOpen = useUIStore((state) => state.setShortcutsModalOpen);
   const updateSettings = useUIStore((state) => state.updateSettings);
   const incrementStats = useUIStore((state) => state.incrementStats);
@@ -367,9 +365,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         startNewChat();
       } else if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
-        setSettingsModalOpen(true);
+        window.location.href = "/settings";
       } else if (e.key === "Escape") {
-        setSettingsModalOpen(false);
         setShortcutsModalOpen(false);
         setMobileSidebarOpen(false);
       }
@@ -377,7 +374,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [setSettingsModalOpen, setShortcutsModalOpen, setMobileSidebarOpen]);
+  }, [setShortcutsModalOpen, setMobileSidebarOpen]);
 
   const filteredChats = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -836,8 +833,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   return (
     <div className={`app-shell ${appearance === "dark" ? "theme-dark" : ""}`}>
-      {/* Modals */}
-      <SettingsModal />
+      {/* Keyboard shortcuts dialog */}
       <ShortcutsModal />
 
       {/* Mobile Drawer Backdrop */}
@@ -1043,7 +1039,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               <DropdownMenu.Content align="end" side="top" sideOffset={8} className="dropdown-content">
                 <DropdownMenu.Item
                   className="dropdown-item"
-                  onSelect={() => setSettingsModalOpen(true)}
+                  onSelect={() => window.location.href = "/settings"}
                 >
                   <Settings size={15} />
                   <span>Settings</span>
@@ -1172,7 +1168,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Separator className="dropdown-separator" />
                   <DropdownMenu.Item
                     className="dropdown-item text-xs"
-                    onSelect={() => setSettingsModalOpen(true)}
+                    onSelect={() => window.location.href = "/settings"}
                   >
                     <Settings size={14} />
                     <span>More model settings…</span>
@@ -1208,7 +1204,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <button
               type="button"
               className="icon-button"
-              onClick={() => setSettingsModalOpen(true)}
+              onClick={() => window.location.href = "/settings"}
               title="Settings"
               aria-label="Open settings"
             >
@@ -1241,7 +1237,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Content align="end" sideOffset={6} className="dropdown-content">
                     <DropdownMenu.Item
                       className="dropdown-item"
-                      onSelect={() => setSettingsModalOpen(true)}
+                      onSelect={() => window.location.href = "/settings"}
                     >
                       <Settings size={14} />
                       <span>Settings</span>
