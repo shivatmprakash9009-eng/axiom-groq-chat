@@ -365,7 +365,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         startNewChat();
       } else if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
-        window.location.href = "/settings";
+        window.location.href = "/chat?settings=1";
       } else if (e.key === "Escape") {
         setShortcutsModalOpen(false);
         setMobileSidebarOpen(false);
@@ -1039,7 +1039,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               <DropdownMenu.Content align="end" side="top" sideOffset={8} className="dropdown-content">
                 <DropdownMenu.Item
                   className="dropdown-item"
-                  onSelect={() => window.location.href = "/settings"}
+                  onSelect={() => window.location.href = "/chat?settings=1"}
                 >
                   <Settings size={15} />
                   <span>Settings</span>
@@ -1168,7 +1168,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Separator className="dropdown-separator" />
                   <DropdownMenu.Item
                     className="dropdown-item text-xs"
-                    onSelect={() => window.location.href = "/settings"}
+                    onSelect={() => window.location.href = "/chat?settings=1"}
                   >
                     <Settings size={14} />
                     <span>More model settings…</span>
@@ -1204,7 +1204,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <button
               type="button"
               className="icon-button"
-              onClick={() => window.location.href = "/settings"}
+              onClick={() => window.location.href = "/chat?settings=1"}
               title="Settings"
               aria-label="Open settings"
             >
@@ -1237,7 +1237,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Content align="end" sideOffset={6} className="dropdown-content">
                     <DropdownMenu.Item
                       className="dropdown-item"
-                      onSelect={() => window.location.href = "/settings"}
+                      onSelect={() => window.location.href = "/chat?settings=1"}
                     >
                       <Settings size={14} />
                       <span>Settings</span>
