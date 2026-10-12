@@ -1,9 +1,9 @@
 "use client";
 
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { ArrowLeft, Check, Cpu, LogOut, Moon, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Cpu, LogOut, Moon, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, UserRound, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { type ChatStyle, useUIStore } from "@/stores/ui-store";
