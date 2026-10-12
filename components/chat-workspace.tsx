@@ -22,7 +22,6 @@ import {
   Moon,
   MoreHorizontal,
   PanelLeftClose,
-  Paperclip,
   Pencil,
   PenLine,
   Plus,
@@ -1365,7 +1364,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                       title="Attach file"
                       aria-label="Attach file"
                     >
-                      <Paperclip size={17} />
+                      <Plus size={20} />
                     </button>
                     <button
                       type="button"
@@ -1624,7 +1623,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                     title="Attach file"
                     aria-label="Attach file"
                   >
-                    <Paperclip size={17} />
+                    <Plus size={20} />
                   </button>
                   <button
                     type="button"
