@@ -1051,9 +1051,9 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
         {/* User Account Footer */}
         <div className="sidebar-footer">
-          <div className="user-avatar-circle">
+          <button type="button" className="user-avatar-circle" onClick={() => { window.location.href = "/settings"; }} aria-label="Open account settings" title="Account settings">
             {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
-          </div>
+          </button>
           <div className="sidebar-footer-text">
             <strong>{guestMode ? "Guest session" : firebaseUser?.displayName || firebaseUser?.email?.split("@")[0] || "My account"}</strong>
             <span>{guestMode ? "Guest workspace" : firebaseUser?.email || currentModel.name}</span>
