@@ -1134,7 +1134,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         <div className="mobile-drawer-bottom">
           <button type="button" className="mobile-chat-button" onClick={startNewChat}><PenLine size={18} /><span>Chat</span></button>
           <button type="button" className="mobile-profile-button" onClick={() => { window.location.href = "/settings"; }} aria-label="Open account settings">
-            {firebaseUser?.photoURL ? <img src={firebaseUser.photoURL} alt="" referrerPolicy="no-referrer" /> : <span>{guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
+            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : <span>{guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
           </button>
         </div>
       </aside>
