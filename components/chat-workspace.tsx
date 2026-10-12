@@ -29,6 +29,7 @@ import {
   RotateCcw,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Square,
   Sun,
