@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { ArrowLeft, Check, Cpu, LogOut, Moon, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, UserRound, Zap } from "lucide-react";
+import { Archive, ArrowLeft, AudioLines, Bell, BookOpen, BriefcaseBusiness, ChartNoAxesColumn, Check, ChevronDown, ChevronRight, Cpu, HardDrive, LockKeyhole, LogOut, Megaphone, Monitor, Moon, Palette, Puzzle, Settings, ShieldCheck, SlidersHorizontal, Smile, Sparkles, Sun, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -73,81 +73,87 @@ export function SettingsPage() {
   };
 
   return (
-    <main className={`settings-page min-h-dvh ${appearance === "dark" ? "theme-dark" : ""}`}>
-      <header className="settings-topbar">
-        <Link href="/chat" className="settings-back-link"><ArrowLeft size={17} /> Back to workspace</Link>
-        <Link href="/chat" className="settings-wordmark"><span className="settings-brand-mark">T</span><span>TIWAT<span className="settings-brand-dot">.</span></span></Link>
-        <span className="settings-topbar-label">ACCOUNT & PREFERENCES</span>
-      </header>
-      <div className="settings-layout">
-        <aside className="settings-sidebar">
-          <div className="settings-eyebrow">YOUR WORKSPACE</div><h1>Settings</h1><p>Make TIWAT feel like yours.</p>
-          <nav className="settings-nav" aria-label="Settings sections">
-            <a href="#profile" className="settings-nav-item active"><UserRound size={17} /> Profile</a>
-            <a href="#ai" className="settings-nav-item"><SlidersHorizontal size={17} /> AI preferences</a>
-            <a href="#appearance" className="settings-nav-item"><Palette size={17} /> Appearance</a>
-            <a href="#privacy" className="settings-nav-item"><ShieldCheck size={17} /> Privacy & security</a>
-          </nav>
-          <div className="settings-sidebar-foot">Your preferences are stored in this browser.</div>
-        </aside>
-        <div className="settings-content">
-          <section id="profile" className="settings-section">
-            <div className="settings-section-heading"><div><span className="settings-section-kicker">ACCOUNT</span><h2>Your profile</h2><p>Your identity for the account currently signed in.</p></div></div>
-            <div className="settings-profile-card">
-              <div className="settings-avatar" style={user?.photoURL ? { backgroundImage: `url("${user.photoURL}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>{!user?.photoURL && <span>{initials(user)}</span>}</div>
-              <div className="settings-profile-main">
-                <div className="settings-profile-name">{authLoading ? "Loading profile…" : user?.displayName || user?.email?.split("@")[0] || "Guest workspace"}</div>
-                <div className="settings-profile-email">{authLoading ? "Checking account…" : user?.email || "Not signed in"}</div>
-                <div className="settings-profile-badges"><span className={`settings-status-pill ${user ? "" : "muted"}`}>{user ? <><Check size={12} /> Signed in</> : "Guest session"}</span>{user?.emailVerified && <span className="settings-status-pill">Email verified</span>}</div>
-              </div>
-              {user && <button type="button" className="settings-secondary-button" onClick={() => void logout()}><LogOut size={15} /> Sign out</button>}
-            </div>
-            <div className="settings-detail-grid">
-              <div className="settings-detail-card"><span>DISPLAY NAME</span><strong>{authLoading ? "Loading…" : user?.displayName || "Not set"}</strong></div>
-              <div className="settings-detail-card"><span>EMAIL ADDRESS</span><strong>{authLoading ? "Loading…" : user?.email || "Not linked"}</strong></div>
-              <div className="settings-detail-card"><span>SIGN-IN METHOD</span><strong>{user?.providerData.map((p) => p.providerId === "google.com" ? "Google" : p.providerId === "password" ? "Email & password" : p.providerId).join(", ") || (user ? "Firebase account" : "Guest")}</strong></div>
-              <div className="settings-detail-card"><span>SESSION</span><strong>{authLoading ? "Checking…" : user ? "Active" : "Guest access"}</strong></div>
-            </div>
-            {!user && !authLoading && <p className="settings-inline-note">Sign in to display your Google profile name, photo, and email. <Link href="/login">Sign in →</Link></p>}
-          </section>
-
-          <section id="ai" className="settings-section">
-            <div className="settings-section-heading"><div><span className="settings-section-kicker">PERSONALIZATION</span><h2>AI preferences</h2><p>Choose how TIWAT responds to new messages.</p></div></div>
-            <div className="settings-panel">
-              <div className="settings-field-heading"><div><strong>Response style</strong><p>Set your default answer style.</p></div></div>
-              <div className="settings-style-grid">{styles.map((option) => { const Icon = option.icon; const active = settings.chatStyle === option.id; return <button key={option.id} type="button" aria-pressed={active} className={`settings-style-card ${active ? "selected" : ""}`} onClick={() => updateSettings({ chatStyle: option.id })}><span className="settings-style-icon"><Icon size={17} /></span><strong>{option.title}</strong><span className="settings-style-description">{option.detail}</span>{active && <Check className="settings-style-check" size={15} />}</button>; })}</div>
-              <div className="settings-divider" />
-              <label className="settings-field-heading" htmlFor="custom-instructions"><div><strong>Custom instructions</strong><p>Tell TIWAT how you want responses written.</p></div><span className="settings-char-count">{settings.customSystemPrompt.length}/2000</span></label>
-              <textarea id="custom-instructions" className="settings-textarea" maxLength={2000} rows={4} placeholder="Example: Be practical, explain technical terms, and use Hinglish when I do." value={settings.customSystemPrompt} onChange={(e) => updateSettings({ customSystemPrompt: e.target.value })} />
-              <div className="settings-divider" />
-              <div className="settings-field-heading"><div><strong>Creativity</strong><p>Lower is more predictable; higher is more varied.</p></div><span className="settings-value-pill">{settings.temperature.toFixed(1)}</span></div>
-              <input className="settings-range" type="range" min="0" max="2" step="0.1" value={settings.temperature} onChange={(e) => updateSettings({ temperature: Number(e.target.value) })} aria-label="Creativity" />
-              <div className="settings-range-labels"><span>Precise</span><span>Balanced</span><span>Creative</span></div>
-              <div className="settings-divider" />
-              <div className="settings-toggle-row"><div><strong>Stream responses</strong><p>Show the response as it is generated.</p></div><button type="button" role="switch" aria-checked={settings.streamResponses} className={`settings-switch ${settings.streamResponses ? "on" : ""}`} onClick={() => updateSettings({ streamResponses: !settings.streamResponses })}><span /></button></div>
-              <div className="settings-save-row"><span className="settings-save-hint">Saved locally in this browser.</span><button type="button" className="settings-primary-button" onClick={savePreferences}>{saved ? <><Check size={15} /> Saved</> : "Save preferences"}</button></div>
-            </div>
-          </section>
-
-          <section id="appearance" className="settings-section">
-            <div className="settings-section-heading"><div><span className="settings-section-kicker">DISPLAY</span><h2>Appearance</h2><p>Choose a comfortable workspace theme.</p></div></div>
-            <div className="settings-appearance-grid">
-              <button type="button" onClick={() => { setAppearance("light"); try { localStorage.setItem("axiom.appearance", "light"); } catch {} }} className={`settings-appearance-card light ${appearance === "light" ? "selected" : ""}`}><Sun size={22} /><strong>Light</strong><span>Bright and focused</span>{appearance === "light" && <Check size={16} />}</button>
-              <button type="button" onClick={() => { setAppearance("dark"); try { localStorage.setItem("axiom.appearance", "dark"); } catch {} }} className={`settings-appearance-card dark ${appearance === "dark" ? "selected" : ""}`}><Moon size={22} /><strong>Dark</strong><span>Easy on the eyes</span>{appearance === "dark" && <Check size={16} />}</button>
-            </div>
-          </section>
-
-          <section id="privacy" className="settings-section">
-            <div className="settings-section-heading"><div><span className="settings-section-kicker">YOUR DATA</span><h2>Privacy & security</h2><p>Understand where account and workspace data live.</p></div></div>
-            <div className="settings-panel settings-privacy-list">
-              <div className="settings-privacy-item"><ShieldCheck size={19} /><div><strong>Authentication</strong><p>Firebase manages sign-in. Profile information shown here comes from your current Firebase session.</p></div></div>
-              <div className="settings-privacy-item"><UserRound size={19} /><div><strong>Conversation history</strong><p>Chat history is stored in this browser and is not synced to a cloud conversation database.</p></div></div>
-              <div className="settings-privacy-item"><SlidersHorizontal size={19} /><div><strong>Preferences</strong><p>Use Save preferences to store response settings in this browser.</p></div></div>
-              <Link href="/privacy" className="settings-privacy-link">Read privacy information →</Link>
-            </div>
-          </section>
-          <footer className="settings-footer"><span>TIWAT · Think clearly. Move faster.</span><Link href="/chat">Return to workspace →</Link></footer>
+    <main className={`account-settings-page ${appearance === "dark" ? "theme-dark" : ""}`}>
+      <header className="account-settings-top">
+        <Link href="/chat" className="account-round-action" aria-label="Back to chat"><span aria-hidden="true">←</span></Link>
+        <div className="account-hero">
+          <button type="button" className="account-avatar-edit" aria-label="Profile photo from signed-in account">
+            {user?.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : <span>{initials(user)}</span>}
+            <span className="account-edit-badge">✎</span>
+          </button>
+          <strong>{authLoading ? "Loading…" : user?.displayName || user?.email?.split("@")[0] || "Guest"}</strong>
         </div>
+        <button type="button" className="account-round-action account-info-action" onClick={() => document.getElementById("account-information")?.scrollIntoView({ behavior: "smooth" })} aria-label="Account information">i</button>
+      </header>
+
+      <div className="account-settings-content">
+        <section className="account-settings-group account-profile-group" id="account-information">
+          <button type="button" className="account-setting-row account-profile-row" onClick={() => document.getElementById("profile-details")?.scrollIntoView({ behavior: "smooth" })}>
+            <UserRound /><span><strong>Account</strong><small>{authLoading ? "Checking account…" : user?.email || "Guest session — sign in to connect your account"}</small></span><ChevronRight />
+          </button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("workspace-details")?.scrollIntoView({ behavior: "smooth" })}>
+            <BriefcaseBusiness /><span><strong>Workspace</strong><small>Personal</small></span><ChevronRight />
+          </button>
+          <button type="button" className="account-setting-row account-upgrade-row" onClick={() => document.getElementById("ai-preferences")?.scrollIntoView({ behavior: "smooth" })}>
+            <Sparkles /><span><strong>Make TIWAT yours</strong><small>Explore your AI preferences</small></span><ChevronRight />
+          </button>
+        </section>
+
+        <section className="account-settings-group">
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("ai-preferences")?.scrollIntoView({ behavior: "smooth" })}><Smile /><span><strong>Personalization</strong><small>Response style and custom instructions</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("memory-details")?.scrollIntoView({ behavior: "smooth" })}><BookOpen /><span><strong>Memory</strong><small>How chat history is stored</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("workspace-details")?.scrollIntoView({ behavior: "smooth" })}><Puzzle /><span><strong>Integrations</strong><small>Available workspace capabilities</small></span><ChevronRight /></button>
+          <div className="account-setting-row account-accent-row"><Palette /><span><strong>Accent color</strong><small><i className="account-color-dot" /> Indigo · TIWAT brand</small></span><ChevronDown /></div>
+        </section>
+
+        <section className="account-settings-group">
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("general-details")?.scrollIntoView({ behavior: "smooth" })}><Settings /><span><strong>General</strong><small>Appearance and response behavior</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("usage-details")?.scrollIntoView({ behavior: "smooth" })}><ChartNoAxesColumn /><span><strong>Usage and limits</strong><small>Current workspace status</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("general-details")?.scrollIntoView({ behavior: "smooth" })}><Bell /><span><strong>Notifications</strong><small>Notification preferences</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("general-details")?.scrollIntoView({ behavior: "smooth" })}><AudioLines /><span><strong>Voice</strong><small>Voice input availability depends on your device</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("privacy-details")?.scrollIntoView({ behavior: "smooth" })}><ShieldCheck /><span><strong>Safety</strong><small>AI use and safety information</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("profile-details")?.scrollIntoView({ behavior: "smooth" })}><LockKeyhole /><span><strong>Security and login</strong><small>Account and sign-in status</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("workspace-details")?.scrollIntoView({ behavior: "smooth" })}><Monitor /><span><strong>Remote control</strong><small>Not enabled in this workspace</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("memory-details")?.scrollIntoView({ behavior: "smooth" })}><HardDrive /><span><strong>Storage</strong><small>Local browser data</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("privacy-details")?.scrollIntoView({ behavior: "smooth" })}><ShieldCheck /><span><strong>Privacy center</strong><small>Understand how your data is handled</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("memory-details")?.scrollIntoView({ behavior: "smooth" })}><Archive /><span><strong>History and data</strong><small>Chat history stays in this browser</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => document.getElementById("privacy-details")?.scrollIntoView({ behavior: "smooth" })}><Megaphone /><span><strong>Data controls</strong><small>Privacy and provider information</small></span><ChevronRight /></button>
+        </section>
+
+        <section id="profile-details" className="account-detail-section">
+          <h2>Account details</h2>
+          <div className="account-detail-card"><span>DISPLAY NAME</span><strong>{user?.displayName || "Not set"}</strong><span>EMAIL ADDRESS</span><strong>{user?.email || "Not linked"}</strong><span>SIGN-IN METHOD</span><strong>{user?.providerData.map((p) => p.providerId === "google.com" ? "Google" : p.providerId === "password" ? "Email & password" : p.providerId).join(", ") || "Guest"}</strong><span>EMAIL VERIFICATION</span><strong>{user ? user.emailVerified ? "Verified" : "Not verified" : "Not signed in"}</strong></div>
+          {!user && <Link className="account-primary-button" href="/login">Sign in</Link>}
+          {user && <button className="account-secondary-button" type="button" onClick={() => void logout()}><LogOut size={16} /> Sign out</button>}
+        </section>
+
+        <section id="ai-preferences" className="account-detail-section">
+          <h2>Personalization</h2>
+          <div className="account-detail-card">
+            <strong>Response style</strong>
+            <div className="account-style-grid">{styles.map((option) => { const Icon = option.icon; return <button type="button" key={option.id} className={`account-style-option ${settings.chatStyle === option.id ? "selected" : ""}`} onClick={() => updateSettings({ chatStyle: option.id })}><Icon size={17} /><span>{option.title}</span>{settings.chatStyle === option.id && <Check size={15} />}</button>; })}</div>
+            <label className="account-field-label" htmlFor="account-custom-instructions">Custom instructions</label>
+            <textarea id="account-custom-instructions" className="settings-textarea" maxLength={2000} rows={4} value={settings.customSystemPrompt} onChange={(e) => updateSettings({ customSystemPrompt: e.target.value })} placeholder="Tell TIWAT how you want replies written." />
+            <label className="account-field-label" htmlFor="account-temperature">Creativity · {settings.temperature.toFixed(1)}</label>
+            <input id="account-temperature" className="settings-range" type="range" min="0" max="2" step="0.1" value={settings.temperature} onChange={(e) => updateSettings({ temperature: Number(e.target.value) })} />
+            <div className="account-toggle-row"><span><strong>Stream responses</strong><small>Display replies as they arrive.</small></span><button type="button" role="switch" aria-checked={settings.streamResponses} className={`settings-switch ${settings.streamResponses ? "on" : ""}`} onClick={() => updateSettings({ streamResponses: !settings.streamResponses })}><span /></button></div>
+            <button type="button" className="account-primary-button" onClick={savePreferences}>{saved ? "Saved" : "Save preferences"}</button>
+          </div>
+        </section>
+
+        <section id="general-details" className="account-detail-section">
+          <h2>General</h2>
+          <div className="account-detail-card">
+            <strong>Appearance</strong>
+            <div className="account-style-grid"><button className={`account-style-option ${appearance === "light" ? "selected" : ""}`} type="button" onClick={() => { setAppearance("light"); try { localStorage.setItem("axiom.appearance", "light"); } catch {} }}><Sun size={17} /><span>Light mode</span></button><button className={`account-style-option ${appearance === "dark" ? "selected" : ""}`} type="button" onClick={() => { setAppearance("dark"); try { localStorage.setItem("axiom.appearance", "dark"); } catch {} }}><Moon size={17} /><span>Dark mode</span></button></div>
+          </div>
+        </section>
+
+        <section id="workspace-details" className="account-detail-section"><h2>Workspace</h2><div className="account-detail-card"><strong>Personal workspace</strong><p>TIWAT AI chat, response customization, and local conversation history.</p><small>Some services such as remote control and third-party plugins are not currently enabled.</small></div></section>
+        <section id="usage-details" className="account-detail-section"><h2>Usage and limits</h2><div className="account-detail-card"><p>Requests are subject to the configured AI provider, its plan, and workspace rate limits. Live usage billing is not available on this page.</p></div></section>
+        <section id="memory-details" className="account-detail-section"><h2>History and storage</h2><div className="account-detail-card"><p>Conversation history is stored locally in this browser. It is not currently synced across devices.</p></div></section>
+        <section id="privacy-details" className="account-detail-section"><h2>Privacy & security</h2><div className="account-detail-card"><p>Firebase handles authentication. AI requests are sent to the configured server-side provider. Avoid submitting sensitive secrets or passwords in chat.</p><Link href="/privacy">Read privacy information →</Link></div></section>
+        <footer className="account-settings-footer"><span>TIWAT · Account settings</span><Link href="/chat">← Back to chat</Link></footer>
       </div>
     </main>
   );
