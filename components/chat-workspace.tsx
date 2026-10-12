@@ -199,6 +199,63 @@ function groupChatsByDate(chats: Chat[]) {
   return Object.entries(groups).filter(([_, items]) => items.length > 0);
 }
 
+function TypewriterMarkdown({
+  content,
+  isComplete,
+  onComplete,
+}: {
+  content: string;
+  isComplete: boolean;
+  onComplete: () => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const completedRef = useRef(false);
+  const words = content.match(/\\S+\\s*/g) || [];
+  const visibleText = words.slice(0, visibleCount).join("");
+
+  useEffect(() => {
+    if (visibleCount < words.length) {
+      const timer = window.setTimeout(() => {
+        setVisibleCount((count) => Math.min(count + 1, words.length));
+      }, 28);
+      return () => window.clearTimeout(timer);
+    }
+
+    if (isComplete && !completedRef.current) {
+      completedRef.current = true;
+      onComplete();
+    }
+  }, [visibleCount, words.length, isComplete, onComplete]);
+
+  return (
+    <div className="markdown-body typewriter-response" aria-live="off">
+      {visibleCount < words.length ? (
+        <>
+          <span className="whitespace-pre-wrap">{visibleText}</span>
+          <span className="typewriter-caret" aria-hidden="true" />
+        </>
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeHighlight]}
+          components={{
+            code({ className, children, ...props }) {
+              const match = /language-(\\w+)/.exec(className || "");
+              const codeString = String(children).replace(/\\n$/, "");
+              if (match || codeString.includes("\\n")) {
+                return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
+              }
+              return <code className={className} {...props}>{children}</code>;
+            },
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      )}
+    </div>
+  );
+}
+
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -208,6 +265,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [thumbsState, setThumbsState] = useState<Record<string, "up" | "down">>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [animatedMessageId, setAnimatedMessageId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -372,6 +430,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsGenerating(true);
+    setAnimatedMessageId(placeholderId);
 
     try {
       let authHeader: Record<string, string> = {};
@@ -1381,6 +1440,13 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
                         <div className="assistant-body">
                           {message.content ? (
+                            message.id === animatedMessageId ? (
+                              <TypewriterMarkdown
+                                content={message.content}
+                                isComplete={!isGenerating}
+                                onComplete={() => setAnimatedMessageId((id) => id === message.id ? null : id)}
+                              />
+                            ) : (
                             <div className="markdown-body">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
@@ -1407,6 +1473,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                                 {message.content}
                               </ReactMarkdown>
                             </div>
+                            )
                           ) : (
                             /* Thinking / Streaming pulse */
                             <div className="flex items-center gap-1.5 py-2" role="status" aria-label="Thinking">
