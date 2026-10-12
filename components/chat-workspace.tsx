@@ -1,6 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import Image from "next/image";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -17,10 +18,9 @@ import {
   Lightbulb,
   LogIn,
   LogOut,
+  Menu,
   Moon,
   MoreHorizontal,
-  Menu,
-  PanelLeft,
   PanelLeftClose,
   Paperclip,
   Pencil,
@@ -1053,7 +1053,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         {/* User Account Footer */}
         <div className="sidebar-footer">
           <div className="user-avatar-circle">
-            {firebaseUser?.photoURL ? <img src={firebaseUser.photoURL} alt="" referrerPolicy="no-referrer" /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
+            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
           </div>
           <div className="sidebar-footer-text">
             <strong>{guestMode ? "Guest session" : firebaseUser?.displayName || firebaseUser?.email?.split("@")[0] || "My account"}</strong>
