@@ -323,6 +323,26 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       // browser storage
     }
 
+    try {
+      const rawPreferences = localStorage.getItem("tiwat.preferences.v1");
+      if (rawPreferences) {
+        const preferences = JSON.parse(rawPreferences) as {
+          chatStyle?: "default" | "concise" | "detailed" | "code";
+          customSystemPrompt?: string;
+          temperature?: number;
+          streamResponses?: boolean;
+        };
+        useUIStore.getState().updateSettings({
+          ...(preferences.chatStyle ? { chatStyle: preferences.chatStyle } : {}),
+          ...(typeof preferences.customSystemPrompt === "string" ? { customSystemPrompt: preferences.customSystemPrompt } : {}),
+          ...(typeof preferences.temperature === "number" ? { temperature: preferences.temperature } : {}),
+          ...(typeof preferences.streamResponses === "boolean" ? { streamResponses: preferences.streamResponses } : {}),
+        });
+      }
+    } catch {
+      // Ignore unavailable or malformed saved preferences.
+    }
+
     if (!guestMode) {
       try {
         const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (_user) => {
