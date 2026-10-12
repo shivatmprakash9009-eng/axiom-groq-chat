@@ -94,7 +94,7 @@ export function SettingsPage() {
           <section id="profile" className="settings-section">
             <div className="settings-section-heading"><div><span className="settings-section-kicker">ACCOUNT</span><h2>Your profile</h2><p>Your identity for the account currently signed in.</p></div></div>
             <div className="settings-profile-card">
-              <div className="settings-avatar">{user?.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : <span>{initials(user)}</span>}</div>
+              <div className="settings-avatar" style={user?.photoURL ? { backgroundImage: `url("${user.photoURL}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>{!user?.photoURL && <span>{initials(user)}</span>}</div>
               <div className="settings-profile-main">
                 <div className="settings-profile-name">{authLoading ? "Loading profile…" : user?.displayName || user?.email?.split("@")[0] || "Guest workspace"}</div>
                 <div className="settings-profile-email">{authLoading ? "Checking account…" : user?.email || "Not signed in"}</div>
