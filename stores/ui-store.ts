@@ -35,7 +35,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   mobileSidebarOpen: false,
-  appearance: "light",
+  appearance: "dark",
   settingsModalOpen: false,
   shortcutsModalOpen: false,
   settings: {
