@@ -1,7 +1,6 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import Image from "next/image";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -37,6 +36,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { parseAsString, useQueryState } from "nuqs";
 import {
   type ChangeEvent,
