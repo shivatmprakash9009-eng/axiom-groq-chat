@@ -263,13 +263,24 @@ export async function POST(request: NextRequest) {
 
       const readableStream = new ReadableStream({
         async start(controller) {
+          let succeeded = false;
+          let streamProvider: string | undefined;
+          let streamModel: string | undefined;
+          let promptTokens: number | undefined;
+          let completionTokens: number | undefined;
+          const startedAt = Date.now();
           try {
             for await (const chunk of streamGenerator) {
+              if (chunk.provider) streamProvider = chunk.provider;
+              if (chunk.model) streamModel = chunk.model;
+              if (chunk.usage?.promptTokens !== undefined) promptTokens = chunk.usage.promptTokens;
+              if (chunk.usage?.completionTokens !== undefined) completionTokens = chunk.usage.completionTokens;
               const data = JSON.stringify(chunk);
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${data}\\n\\n`));
             }
+            succeeded = true;
             if (!request.signal.aborted && !upstreamAbortController.signal.aborted) {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
               controller.close();
             }
           } catch (streamError) {
