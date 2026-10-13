@@ -89,37 +89,42 @@ export function SettingsPage() {
     try { await signOut(getFirebaseAuth()); } finally { router.replace("/login"); }
   };
 
-  const scrollTo = (id: string) => {
+  const openSection = (id: string) => {
     setActiveSection(id);
-    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const returnToSections = () => {
+    setActiveSection(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <main className={`account-settings-page ${appearance === "dark" ? "theme-dark" : ""}`} style={appearanceReady ? undefined : { opacity: 0 }}>
       <header className="account-settings-top">
-        <Link href="/chat" className="account-round-action" aria-label="Back to chat"><ArrowLeft size={23} /></Link>
+        {activeSection ? <button type="button" className="account-round-action" onClick={returnToSections} aria-label="Back to settings sections"><ArrowLeft size={23} /></button> : <Link href="/chat" className="account-round-action" aria-label="Back to chat"><ArrowLeft size={23} /></Link>}
         <div className="account-hero">
           <div className="account-avatar-edit">
             {user?.photoURL ? <Image src={user.photoURL} alt="" width={48} height={48} unoptimized referrerPolicy="no-referrer" /> : <span>{initials(user)}</span>}
           </div>
           <strong>{authLoading ? "Loading…" : user?.displayName || user?.email?.split("@")[0] || "Guest"}</strong>
         </div>
-        <button type="button" className="account-round-action account-info-action" onClick={() => scrollTo("account-details")} aria-label="Account information">i</button>
+        <button type="button" className="account-round-action account-info-action" onClick={() => openSection("account-details")} aria-label="Account information">i</button>
       </header>
 
       <div className="account-settings-content">
-        <section className="account-settings-group">
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("account-details")}><UserRound /><span><strong>Account</strong><small>{authLoading ? "Checking account…" : user?.email || "Guest session — sign in to connect your account"}</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("personalization")}><Sparkles /><span><strong>Personalization</strong><small>Base style and tone, custom instructions</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("language")}><Globe2 /><span><strong>Language</strong><small>{language}</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("appearance")}><Palette /><span><strong>Appearance</strong><small>{appearance === "dark" ? "Dark" : "Light"} theme</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("safety")}><ShieldCheck /><span><strong>Safety</strong><small>Responsible use and AI safety</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("privacy-center")}><LockKeyhole /><span><strong>Privacy center</strong><small>How your data is handled</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("help-center")}><HelpCircle /><span><strong>Help center</strong><small>Support and common questions</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("terms")}><FileText /><span><strong>Terms of service</strong><small>Terms for using TIWAT</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("privacy-policy")}><ShieldCheck /><span><strong>Privacy policy</strong><small>Privacy and data practices</small></span><ChevronRight /></button>
-          <button type="button" className="account-setting-row" onClick={() => scrollTo("license")}><FileText /><span><strong>License</strong><small>MIT License</small></span><ChevronRight /></button>
-        </section>
+        {activeSection === null && <section className="account-settings-group">
+          <button type="button" className="account-setting-row" onClick={() => openSection("account-details")}><UserRound /><span><strong>Account</strong><small>{authLoading ? "Checking account…" : user?.email || "Guest session — sign in to connect your account"}</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("personalization")}><Sparkles /><span><strong>Personalization</strong><small>Base style and tone, custom instructions</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("language")}><Globe2 /><span><strong>Language</strong><small>{language}</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("appearance")}><Palette /><span><strong>Appearance</strong><small>{appearance === "dark" ? "Dark" : "Light"} theme</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("safety")}><ShieldCheck /><span><strong>Safety</strong><small>Responsible use and AI safety</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("privacy-center")}><LockKeyhole /><span><strong>Privacy center</strong><small>How your data is handled</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("help-center")}><HelpCircle /><span><strong>Help center</strong><small>Support and common questions</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("terms")}><FileText /><span><strong>Terms of service</strong><small>Terms for using TIWAT</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("privacy-policy")}><ShieldCheck /><span><strong>Privacy policy</strong><small>Privacy and data practices</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => openSection("license")}><FileText /><span><strong>License</strong><small>MIT License</small></span><ChevronRight /></button>
+        </section>}
 
         <section id="account-details" className="account-detail-section" style={{ display: activeSection === "account-details" ? undefined : "none" }}>
           <h2>Account</h2>
