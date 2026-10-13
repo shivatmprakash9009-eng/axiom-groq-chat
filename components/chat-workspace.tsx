@@ -205,6 +205,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [cloudHistoryReady, setCloudHistoryReady] = useState(false);
   const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -300,7 +301,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
   }, [guestMode]);
 
-  // Persist chats to localStorage
+  // Persist chats locally for guest/offline continuity.
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -309,6 +310,71 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       // ignore
     }
   }, [chats, hydrated]);
+
+  // Load the signed-in user's history from the server.
+  useEffect(() => {
+    if (guestMode || !hydrated || !firebaseUser) {
+      setCloudHistoryReady(false);
+      return;
+    }
+    let cancelled = false;
+    setCloudHistoryReady(false);
+    void (async () => {
+      try {
+        const token = await firebaseUser.getIdToken();
+        const response = await fetch("/api/chats", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        if (!response.ok) throw new Error("Cloud chat history could not be loaded.");
+        const data = await response.json() as { chats?: Array<{ id: string; title: string; messages: Message[]; updated_at: string }> };
+        if (cancelled) return;
+        const remote = (data.chats || []).map((chat) => ({
+          id: chat.id, title: chat.title || "New chat",
+          messages: Array.isArray(chat.messages) ? chat.messages : [],
+          updatedAt: Date.parse(chat.updated_at) || Date.now(),
+        })).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_HISTORY);
+        if (remote.length) {
+          setChats(remote);
+        } else {
+          const local = readHistory();
+          if (local.length) {
+            const upload = await fetch("/api/chats", {
+              method: "PUT",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ chats: local.map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
+            });
+            if (!upload.ok) throw new Error("Local chat history could not be migrated to the cloud.");
+            if (!cancelled) setChats(local);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) toast.error(error instanceof Error ? error.message : "Cloud chat sync failed.");
+      } finally {
+        if (!cancelled) setCloudHistoryReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [firebaseUser, guestMode, hydrated]);
+
+  // Keep signed-in chat history synced to Supabase; guest history stays local.
+  useEffect(() => {
+    if (guestMode || !firebaseUser || !hydrated || !cloudHistoryReady) return;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const token = await firebaseUser.getIdToken();
+          const response = await fetch("/api/chats", {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ chats: chats.slice(0, MAX_HISTORY).map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
+          });
+          if (!response.ok) throw new Error("Chat history could not be synced to the cloud.");
+        } catch (error) {
+          console.error("[TIWAT] Cloud chat sync failed", error);
+          toast.error("Cloud chat sync failed. Your local history is still available on this device.");
+        }
+      })();
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [chats, cloudHistoryReady, firebaseUser, guestMode, hydrated]);
 
   // Stop any reply still in flight when leaving the workspace.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -831,9 +897,14 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
-    if (activeId === id) {
-      void setActiveId(null);
+    if (!guestMode && firebaseUser) {
+      void firebaseUser.getIdToken().then((token) => fetch("/api/chats", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })).catch((error) => console.error("[TIWAT] Cloud chat deletion failed", error));
     }
+    if (activeId === id) void setActiveId(null);
     toast.success("Chat deleted");
   };
 
@@ -851,13 +922,19 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   };
 
   const clearHistory = () => {
+    const ids = chats.map((chat) => chat.id);
     setChats([]);
-    void setActiveId(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
+    if (!guestMode && firebaseUser) {
+      void firebaseUser.getIdToken().then(async (token) => {
+        await Promise.all(ids.map((id) => fetch("/api/chats", {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })));
+      }).catch((error) => console.error("[TIWAT] Cloud history clear failed", error));
     }
+    void setActiveId(null);
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     toast.success("Chat history cleared");
   };
 
