@@ -484,6 +484,13 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           style: detailedStyleEnabled ? "detailed" : settings.chatStyle,
           customSystemPrompt: settings.customSystemPrompt || undefined,
           temperature: settings.temperature,
+          language: (() => {
+            try {
+              const raw = localStorage.getItem("tiwat.preferences.v1");
+              const preference = raw ? JSON.parse(raw) as { language?: unknown } : null;
+              return typeof preference?.language === "string" ? preference.language : "English";
+            } catch { return "English"; }
+          })(),
           guestMode,
         }),
       });
