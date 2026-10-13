@@ -49,7 +49,7 @@ export async function getPlan(uid: string): Promise<PlanId> {
   return resolvePlan(rows[0]?.plan);
 }
 
-export async function reserveUsage(uid: string, inputCharacters: number, idempotencyKey = randomUUID()) {
+export async function reserveUsage(uid: string, inputCharacters: number, idempotencyKey: string = randomUUID()) {
   const plan = await getPlan(uid);
   const limit = PLAN_LIMITS[plan].dailyMessages;
   // PostgREST returns a scalar jsonb function result as the JSON object itself,
