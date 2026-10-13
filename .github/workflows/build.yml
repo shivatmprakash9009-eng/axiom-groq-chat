@@ -19,9 +19,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Dependency audit
-        run: |
-          npm audit --json > audit-report.json || true
-          node -e 'const a = require("./audit-report.json"); console.log("Dependency audit summary:", JSON.stringify(a.metadata?.vulnerabilities || {})); for (const [name, v] of Object.entries(a.vulnerabilities || {})) console.log(`${name}: severity=${v.severity}; direct=${v.isDirect}; range=${v.range}; fix=${JSON.stringify(v.fixAvailable)}`);'
+        run: npm audit --audit-level=high
       - name: Lint checks
         run: npm run lint
       - name: TypeScript typecheck
