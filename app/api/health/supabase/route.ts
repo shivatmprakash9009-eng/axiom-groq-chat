@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SaaSError, supabaseRest } from "@/lib/saas/server";
+import { supabaseRest } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,11 +26,10 @@ export async function GET() {
       { ok: true, service: "supabase", configured: true, connected: true },
       { headers: { "Cache-Control": "no-store, max-age=0" } },
     );
-  } catch (error) {
-    const status = error instanceof SaaSError ? 503 : 503;
+  } catch {
     return NextResponse.json(
       { ok: false, service: "supabase", configured: true, connected: false },
-      { status, headers: { "Cache-Control": "no-store, max-age=0" } },
+      { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   }
 }
