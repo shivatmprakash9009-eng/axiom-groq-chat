@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages, stream, style, customSystemPrompt, temperature, guestMode } = parsed.data;
+    const { messages, stream, style, customSystemPrompt, language, temperature, guestMode } = parsed.data;
 
     // Registered sessions must be validated server-side. Guest mode stays temporary,
     // with the existing per-IP rate limiter protecting anonymous model access.
@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
       const streamGenerator = createAIStream(messages, {
         style,
         customSystemPrompt,
+        language,
         temperature,
         correlationId,
         signal: upstreamSignal,
@@ -268,6 +269,7 @@ export async function POST(request: NextRequest) {
     const result = await createAIResponse(messages, {
       style,
       customSystemPrompt,
+      language,
       temperature,
       correlationId,
       signal: upstreamSignal,
