@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rawPayload = await request.text().catch(() => "");
-    if (!rawPayload || rawPayload.length > 1_000_000) {
+    if (!rawPayload || Buffer.byteLength(rawPayload, "utf8") > 1_000_000) {
       return NextResponse.json(
         { error: rawPayload ? "Request body is too large." : "Invalid JSON request payload." },
         { status: rawPayload ? 413 : 400, headers: { "x-request-id": correlationId } }
@@ -130,10 +130,23 @@ export async function POST(request: NextRequest) {
         }
       ).catch(() => null);
 
-      if (!verification?.ok) {
+      if (!verification) {
         return NextResponse.json(
-          { error: "Your sign-in session is invalid or expired. Please sign in again." },
-          { status: 401, headers: { "x-request-id": correlationId } }
+          { error: "Sign-in verification is temporarily unavailable. Please retry." },
+          { status: 503, headers: { "x-request-id": correlationId } }
+        );
+      }
+
+      if (!verification.ok) {
+        const status = verification.status >= 500 ? 503 : 401;
+        return NextResponse.json(
+          {
+            error:
+              status === 503
+                ? "Sign-in verification is temporarily unavailable. Please retry."
+                : "Your sign-in session is invalid or expired. Please sign in again.",
+          },
+          { status, headers: { "x-request-id": correlationId } }
         );
       }
 
