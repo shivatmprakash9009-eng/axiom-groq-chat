@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PLAN_LIMITS } from "@/lib/saas/plans";
 import { SaaSError, supabaseRest, verifyFirebaseToken } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
