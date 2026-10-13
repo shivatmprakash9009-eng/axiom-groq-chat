@@ -6,6 +6,7 @@ import { chatRequestSchema } from "@/lib/ai/schema";
 import { globalRateLimiter } from "@/lib/security/rate-limiter";
 import { randomUUID } from "node:crypto";
 import { finishUsage, reserveUsage, SaaSError } from "@/lib/saas/server";
+import { PLAN_LIMITS } from "@/lib/saas/plans";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
     // protected by the IP limiter until a separate anonymous quota policy is defined.
     if (authenticatedUid) {
       const inputCharacters = messages.reduce((total, message) => total + message.content.length, 0);
-      if (inputCharacters > 150_000) {
+      if (inputCharacters > PLAN_LIMITS.free.maxInputCharacters) {
         return NextResponse.json({ error: "This conversation is too large. Start a new chat or shorten the context." }, {
           status: 413, headers: { "x-request-id": correlationId },
         });
@@ -228,6 +229,11 @@ export async function POST(request: NextRequest) {
         ? requestedKey
         : randomUUID();
       usageReservation = await reserveUsage(authenticatedUid, inputCharacters, idempotencyKey);
+      if (usageReservation.duplicate) {
+        return NextResponse.json({ error: "This request ID has already been used. Send a new idempotency key for a new message." }, {
+          status: 409, headers: { "x-request-id": correlationId, "Cache-Control": "no-store" },
+        });
+      }
       if (!usageReservation.allowed) {
         return NextResponse.json({
           error: "Daily message limit reached for your current plan.",
