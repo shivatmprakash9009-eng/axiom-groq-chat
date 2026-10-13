@@ -154,18 +154,39 @@ function readHistory(): Chat[] {
     return value
       .filter((entry): entry is Chat => Boolean(entry && typeof entry.id === "string" && Array.isArray(entry.messages)))
       .map((entry) => ({
-        id: entry.id,
-        title: String(entry.title || "New chat"),
-        updatedAt: Number(entry.updatedAt || Date.now()),
-        messages: entry.messages.filter(
-          (m: Message) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
-        ),
+        id: entry.id.slice(0, 100),
+        title: String(entry.title || "New chat").slice(0, 200),
+        updatedAt: Number(entry.updatedAt) || Date.now(),
+        // Older app versions stored messages without an id; the cloud API requires one.
+        messages: entry.messages
+          .filter((m: Message) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+          .map((m: Message) => ({
+            id: typeof m.id === "string" && m.id ? m.id : uid(),
+            role: m.role,
+            content: m.content,
+          })),
       }))
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, MAX_HISTORY);
   } catch {
     return [];
   }
+}
+
+/** Shapes a chat for PUT /api/chats so one odd legacy chat cannot fail the whole sync. */
+function toCloudChat(chat: Chat) {
+  return {
+    id: chat.id.slice(0, 100),
+    title: (chat.title || "New chat").slice(0, 200),
+    messages: chat.messages
+      .slice(-500)
+      .map((m) => ({
+        id: typeof m.id === "string" && m.id ? m.id.slice(0, 200) : uid(),
+        role: m.role,
+        content: m.content.slice(0, 200_000),
+      })),
+    updated_at: new Date(Number.isFinite(chat.updatedAt) ? chat.updatedAt : Date.now()).toISOString(),
+  };
 }
 
 function groupChatsByDate(chats: Chat[]) {
@@ -339,7 +360,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             const upload = await fetch("/api/chats", {
               method: "PUT",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ chats: local.map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
+              body: JSON.stringify({ chats: local.map(toCloudChat) }),
             });
             if (!upload.ok) throw new Error("Local chat history could not be migrated to the cloud.");
             if (!cancelled) setChats(local);
@@ -364,7 +385,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           const response = await fetch("/api/chats", {
             method: "PUT",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ chats: chats.slice(0, MAX_HISTORY).map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
+            body: JSON.stringify({ chats: chats.slice(0, MAX_HISTORY).map(toCloudChat) }),
           });
           if (!response.ok) throw new Error("Chat history could not be synced to the cloud.");
         } catch (error) {
