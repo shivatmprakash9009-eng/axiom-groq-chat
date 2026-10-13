@@ -1928,3 +1928,21 @@ textarea:focus-visible,
 .legal-page h2 { margin: 28px 0 8px; font-size: 18px; }
 .legal-page article p { color: #d0d0d0; font-size: 14px; line-height: 1.8; }
 .legal-page article footer { display: flex; gap: 20px; margin-top: 38px; padding-top: 20px; border-top: 1px solid #292929; }
+
+
+/* Searchable language selector in account settings */
+.language-picker { position: relative; margin-top: 14px; }
+.language-picker-control { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid #3b3b3b; border-radius: 14px; background: #101018; color: #c5a1ff; }
+.language-picker-control input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #f5f5f5; font: inherit; font-size: 14px; }
+.language-picker-control input::placeholder { color: #858095; }
+.language-picker-control:focus-within { border-color: #b18aff; box-shadow: 0 0 0 2px rgb(177 138 255 / 16%); }
+.language-picker-toggle { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #c5a1ff; cursor: pointer; }
+.language-picker-chevron { transition: transform .16s ease; transform: rotate(90deg); }
+.language-picker-chevron.open { transform: rotate(-90deg); }
+.language-picker-current { margin-top: 9px; color: #aaa; font-size: 12px; }
+.language-picker-current strong { color: #eee; }
+.language-picker-options { display: grid; grid-template-columns: minmax(0, 1fr); max-height: 260px; margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #38343f; border-radius: 12px; background: #15151b; }
+.language-picker-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 10px 12px; border: 0; border-bottom: 1px solid #29272f; background: transparent; color: #e8e5ed; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+.language-picker-option:last-child { border-bottom: 0; }
+.language-picker-option:hover, .language-picker-option.selected { background: #33263f; color: #d1b5ff; }
+.language-picker-empty { margin: 0; padding: 14px; color: #aaa; font-size: 13px; }
