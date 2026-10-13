@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { supabaseRest, verifyStripeSignature } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
