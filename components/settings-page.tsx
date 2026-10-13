@@ -33,6 +33,7 @@ export function SettingsPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [language, setLanguage] = useState("English");
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const settings = useUIStore((state) => state.settings);
   const updateSettings = useUIStore((state) => state.updateSettings);
   const appearance = useUIStore((state) => state.appearance);
@@ -89,7 +90,8 @@ export function SettingsPage() {
   };
 
   const scrollTo = (id: string) => {
-    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+    setActiveSection(id);
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
   return (
@@ -114,12 +116,12 @@ export function SettingsPage() {
           <button type="button" className="account-setting-row" onClick={() => scrollTo("safety")}><ShieldCheck /><span><strong>Safety</strong><small>Responsible use and AI safety</small></span><ChevronRight /></button>
           <button type="button" className="account-setting-row" onClick={() => scrollTo("privacy-center")}><LockKeyhole /><span><strong>Privacy center</strong><small>How your data is handled</small></span><ChevronRight /></button>
           <button type="button" className="account-setting-row" onClick={() => scrollTo("help-center")}><HelpCircle /><span><strong>Help center</strong><small>Support and common questions</small></span><ChevronRight /></button>
-          <Link href="/terms" className="account-setting-row"><FileText /><span><strong>Terms of service</strong><small>Terms for using TIWAT</small></span><ChevronRight /></Link>
-          <Link href="/privacy" className="account-setting-row"><ShieldCheck /><span><strong>Privacy policy</strong><small>Privacy and data practices</small></span><ChevronRight /></Link>
-          <a href="https://github.com/shivatmprakash9009-eng/axiom-groq-chat/blob/main/LICENSE" target="_blank" rel="noreferrer" className="account-setting-row"><FileText /><span><strong>License</strong><small>MIT License</small></span><ChevronRight /></a>
+          <button type="button" className="account-setting-row" onClick={() => scrollTo("terms")}><FileText /><span><strong>Terms of service</strong><small>Terms for using TIWAT</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => scrollTo("privacy-policy")}><ShieldCheck /><span><strong>Privacy policy</strong><small>Privacy and data practices</small></span><ChevronRight /></button>
+          <button type="button" className="account-setting-row" onClick={() => scrollTo("license")}><FileText /><span><strong>License</strong><small>MIT License</small></span><ChevronRight /></button>
         </section>
 
-        <section id="account-details" className="account-detail-section">
+        <section id="account-details" className="account-detail-section" style={{ display: activeSection === "account-details" ? undefined : "none" }}>
           <h2>Account</h2>
           <div className="account-detail-card">
             <div className="account-account-identity">
@@ -135,7 +137,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section id="personalization" className="account-detail-section">
+        <section id="personalization" className="account-detail-section" style={{ display: activeSection === "personalization" ? undefined : "none" }}>
           <h2>Personalization</h2>
           <div className="account-detail-card">
             <strong>Base style and tone</strong>
@@ -146,7 +148,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section id="language" className="account-detail-section">
+        <section id="language" className="account-detail-section" style={{ display: activeSection === "language" ? undefined : "none" }}>
           <h2>Language</h2>
           <div className="account-detail-card">
             <strong>Response language preference</strong>
@@ -156,7 +158,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section id="appearance" className="account-detail-section">
+        <section id="appearance" className="account-detail-section" style={{ display: activeSection === "appearance" ? undefined : "none" }}>
           <h2>Appearance</h2>
           <div className="account-detail-card">
             <div className="account-style-grid">
@@ -166,23 +168,25 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section id="safety" className="account-detail-section">
+        <section id="safety" className="account-detail-section" style={{ display: activeSection === "safety" ? undefined : "none" }}>
           <h2>Safety</h2>
           <div className="account-detail-card"><div className="account-info-row"><ShieldCheck /><div><strong>Use AI thoughtfully</strong><p>AI responses can be inaccurate. Verify important information and do not enter passwords, API keys, or other sensitive secrets into chat.</p></div></div><div className="account-info-row"><LockKeyhole /><div><strong>Account security</strong><p>Sign-in is managed through Firebase Authentication. Keep access to your Google or email account secure.</p></div></div></div>
         </section>
 
-        <section id="privacy-center" className="account-detail-section">
+        <section id="privacy-center" className="account-detail-section" style={{ display: activeSection === "privacy-center" ? undefined : "none" }}>
           <h2>Privacy center</h2>
           <div className="account-detail-card"><div className="account-info-row"><LockKeyhole /><div><strong>Conversation history</strong><p>Chat history is stored in this browser and is not currently synced across devices.</p></div></div><div className="account-info-row"><ShieldCheck /><div><strong>AI requests</strong><p>Messages are sent to the configured server-side AI provider to generate replies.</p></div></div><Link href="/privacy" className="account-inline-link">Open privacy policy <ChevronRight size={15} /></Link></div>
         </section>
 
-        <section id="help-center" className="account-detail-section">
+        <section id="help-center" className="account-detail-section" style={{ display: activeSection === "help-center" ? undefined : "none" }}>
           <h2>Help center</h2>
           <div className="account-detail-card"><div className="account-info-row"><HelpCircle /><div><strong>Need help?</strong><p>For sign-in or app issues, check the project documentation and repository issue tracker.</p></div></div><a className="account-inline-link" href="https://github.com/shivatmprakash9009-eng/axiom-groq-chat/issues" target="_blank" rel="noreferrer">Open support issues <ChevronRight size={15} /></a></div>
         </section>
 
-        <section id="terms" className="account-detail-section"><h2>Terms of service</h2><div className="account-detail-card"><p>Use TIWAT lawfully and responsibly. AI output may be incorrect; verify important decisions independently.</p><Link href="/terms" className="account-inline-link">Read terms of service <ChevronRight size={15} /></Link></div></section>
-        <section id="privacy-policy" className="account-detail-section"><h2>Privacy policy</h2><div className="account-detail-card"><p>Review how account authentication, chat requests, and local conversation history work.</p><Link href="/privacy" className="account-inline-link">Read privacy policy <ChevronRight size={15} /></Link></div></section>
+        <section id="terms" className="account-detail-section" style={{ display: activeSection === "terms" ? undefined : "none" }}><h2>Terms of service</h2><div className="account-detail-card"><p>Use TIWAT lawfully and responsibly. AI output may be incorrect; verify important decisions independently.</p><Link href="/terms" className="account-inline-link">Read terms of service <ChevronRight size={15} /></Link></div></section>
+        <section id="privacy-policy" className="account-detail-section" style={{ display: activeSection === "privacy-policy" ? undefined : "none" }}><h2>Privacy policy</h2><div className="account-detail-card"><p>Review how account authentication, chat requests, and local conversation history work.</p><Link href="/privacy" className="account-inline-link">Read privacy policy <ChevronRight size={15} /></Link></div></section>
+
+        <section id="license" className="account-detail-section" style={{ display: activeSection === "license" ? undefined : "none" }}><h2>License</h2><div className="account-detail-card"><strong>MIT License</strong><p>This project is available under the MIT License. See the complete license and copyright notice in the repository.</p><a className="account-inline-link" href="https://github.com/shivatmprakash9009-eng/axiom-groq-chat/blob/main/LICENSE" target="_blank" rel="noreferrer">View full license <ChevronRight size={15} /></a></div></section>
 
         <footer className="account-settings-footer"><span>TIWAT · Account settings</span><Link href="/chat">← Back to chat</Link></footer>
       </div>
