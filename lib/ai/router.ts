@@ -224,7 +224,7 @@ export async function* createAIStream(
       }
 
       for await (const chunk of streamGen) {
-        yieldedAny = true;
+        if (chunk.text.length > 0) yieldedAny = true;
         yield chunk;
       }
 
