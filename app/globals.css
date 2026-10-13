@@ -751,9 +751,31 @@ textarea:focus-visible,
   letter-spacing: -0.025em;
 }
 
-.markdown-body h1 { font-size: 24px; }
-.markdown-body h2 { font-size: 20px; }
-.markdown-body h3 { font-size: 17px; }
+.markdown-body h1 {
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.markdown-body h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: clamp(19px, 2.4vw, 22px);
+  letter-spacing: -0.035em;
+}
+.markdown-body h3 { font-size: 17px; color: var(--text); }
+.markdown-body h4 { font-size: 15px; color: var(--text-secondary); }
+.markdown-body strong { color: var(--text); font-weight: 700; }
+.markdown-body p + ul,
+.markdown-body p + ol { margin-top: -4px; }
+.markdown-body li > p { margin-bottom: 6px; }
+.markdown-body ul ul,
+.markdown-body ol ol,
+.markdown-body ul ol,
+.markdown-body ol ul { margin-top: 5px; margin-bottom: 6px; }
 
 .markdown-body ul,
 .markdown-body ol {
@@ -778,11 +800,17 @@ textarea:focus-visible,
 }
 
 .markdown-body blockquote {
-  padding: 2px 0 2px 16px;
-  margin: 16px 0;
+  position: relative;
+  margin: 18px 0;
+  padding: 13px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
   border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface));
   color: var(--text-secondary);
 }
+.markdown-body blockquote > :last-child { margin-bottom: 0; }
+.markdown-body blockquote strong { color: var(--accent-ink); }
 
 .markdown-body code {
   padding: 2px 6px;
@@ -833,10 +861,21 @@ textarea:focus-visible,
 .markdown-body th {
   background: var(--surface-soft);
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
   white-space: nowrap;
+  text-transform: uppercase;
 }
+.markdown-body tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-soft) 42%, transparent);
+}
+.markdown-body tbody tr:hover td {
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+}
+.markdown-body td:first-child { font-weight: 500; }
+.markdown-body table th:first-child { border-top-left-radius: 13px; }
+.markdown-body table th:last-child { border-top-right-radius: 13px; }
 
 .markdown-body tr:last-child td {
   border-bottom: 0;
