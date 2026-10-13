@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
     // protected by the IP limiter until a separate anonymous quota policy is defined.
     if (authenticatedUid) {
       const inputCharacters = messages.reduce((total, message) => total + message.content.length, 0);
-      if (inputCharacters > PLAN_LIMITS.free.maxInputCharacters) {
+      if (inputCharacters > PLAN_LIMITS.enterprise.maxInputCharacters) {
         return NextResponse.json({ error: "This conversation is too large. Start a new chat or shorten the context." }, {
           status: 413, headers: { "x-request-id": correlationId },
         });
@@ -232,6 +232,13 @@ export async function POST(request: NextRequest) {
       if (usageReservation.duplicate) {
         return NextResponse.json({ error: "This request ID has already been used. Send a new idempotency key for a new message." }, {
           status: 409, headers: { "x-request-id": correlationId, "Cache-Control": "no-store" },
+        });
+      }
+      if (inputCharacters > PLAN_LIMITS[usageReservation.plan].maxInputCharacters) {
+        if (usageReservation.event_id) await finishUsage(usageReservation.event_id, "released");
+        usageReservation = null;
+        return NextResponse.json({ error: "This conversation exceeds your current plan's context limit." }, {
+          status: 413, headers: { "x-request-id": correlationId, "Cache-Control": "no-store" },
         });
       }
       if (!usageReservation.allowed) {
