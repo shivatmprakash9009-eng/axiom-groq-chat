@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
 
   const object = event.data.object;
   const metadata = (object.metadata || {}) as Record<string, string>;
-  const uid = metadata.firebase_uid || (object.client_reference_id as string | undefined);
+  let uid = metadata.firebase_uid || (object.client_reference_id as string | undefined);
+  const subscriptionId = typeof object.subscription === "string" ? object.subscription :
+    (typeof object.id === "string" && object.id.startsWith("sub_") ? object.id : null);
   const subscriptionEvent = [
     "checkout.session.completed", "customer.subscription.created", "customer.subscription.updated",
     "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed",
@@ -36,30 +38,40 @@ export async function POST(request: NextRequest) {
   try {
     // Insert-first deduplication ensures Stripe retries cannot reapply an event.
     const inserted = await supabaseRest<Array<{ stripe_event_id: string }>>("tiwat_webhook_events", {
-      method: "POST", headers: { prefer: "return=representation" },
+      method: "POST",
+      headers: { prefer: "resolution=ignore-duplicates,return=representation" },
       body: JSON.stringify({ stripe_event_id: event.id, event_type: event.type }),
-    }).catch(async (error) => {
-      // A duplicate primary-key violation means this event was already processed.
-      const existing = await supabaseRest<Array<{ stripe_event_id: string }>>(
-        `tiwat_webhook_events?stripe_event_id=eq.${encodeURIComponent(event.id)}&select=stripe_event_id&limit=1`,
-      ).catch(() => []);
-      if (existing.length) return existing;
-      throw error;
     });
     if (!inserted.length) return NextResponse.json({ received: true, duplicate: true });
 
     // Checkout completion alone is not proof of an active subscription. The
     // subscription.created/updated webhook is the source of entitlement truth.
-    if (subscriptionEvent && uid && event.type !== "checkout.session.completed") {
+    if (subscriptionEvent && event.type !== "checkout.session.completed") {
+      if (!uid && subscriptionId) {
+        const existing = await supabaseRest<Array<{ firebase_uid: string }>>(
+          `tiwat_subscriptions?stripe_subscription_id=eq.${encodeURIComponent(subscriptionId)}&select=firebase_uid&limit=1`,
+        );
+        uid = existing[0]?.firebase_uid;
+      }
+      if (uid) {
       const customer = typeof object.customer === "string" ? object.customer : null;
-      const subscriptionId = typeof object.subscription === "string" ? object.subscription :
-        (typeof object.id === "string" && object.id.startsWith("sub_") ? object.id : null);
       const status = event.type === "customer.subscription.deleted" ? "canceled" :
-        (typeof object.status === "string" ? object.status :
-          (event.type === "invoice.payment_failed" ? "past_due" : "active"));
-      const plan = metadata.plan === "team" ? "team" : metadata.plan === "pro" ? "pro" : null;
+        event.type === "invoice.payment_failed" ? "past_due" :
+        event.type === "invoice.paid" ? "active" :
+        (typeof object.status === "string" ? object.status : "inactive");
+      const items = object.items as { data?: Array<{ price?: { id?: string; recurring?: { interval?: string } } }> } | undefined;
+      const lines = object.lines as { data?: Array<{ price?: { id?: string; recurring?: { interval?: string } } }> } | undefined;
+      const priceId = (typeof object.price === "string" ? object.price : undefined)
+        || items?.data?.[0]?.price?.id || lines?.data?.[0]?.price?.id || null;
+      const plan = metadata.plan === "team" || priceId === process.env.STRIPE_PRICE_TEAM_MONTHLY || priceId === process.env.STRIPE_PRICE_TEAM_ANNUAL
+        ? "team"
+        : metadata.plan === "pro" || priceId === process.env.STRIPE_PRICE_PRO_MONTHLY || priceId === process.env.STRIPE_PRICE_PRO_ANNUAL
+          ? "pro" : null;
       const periodEnd = typeof object.current_period_end === "number" ? new Date(object.current_period_end * 1000).toISOString() : null;
-      const interval = metadata.billing_interval === "year" ? "year" : metadata.billing_interval === "month" ? "month" : null;
+      const interval = metadata.billing_interval === "year" || items?.data?.[0]?.price?.recurring?.interval === "year" || lines?.data?.[0]?.price?.recurring?.interval === "year"
+        ? "year"
+        : metadata.billing_interval === "month" || items?.data?.[0]?.price?.recurring?.interval === "month" || lines?.data?.[0]?.price?.recurring?.interval === "month"
+          ? "month" : null;
 
       await supabaseRest("tiwat_accounts?on_conflict=firebase_uid", {
         method: "POST", headers: { prefer: "resolution=merge-duplicates" },
@@ -72,14 +84,12 @@ export async function POST(request: NextRequest) {
         method: "POST", headers: { prefer: "resolution=merge-duplicates" },
         body: JSON.stringify({
           firebase_uid: uid, stripe_customer_id: customer, stripe_subscription_id: subscriptionId,
-          stripe_price_id: typeof object.price === "string" ? object.price : null,
+          stripe_price_id: priceId,
           status, billing_interval: interval, current_period_end: periodEnd,
           cancel_at_period_end: Boolean(object.cancel_at_period_end),
         }),
-      }).catch((error) => {
-        // Checkout sessions can arrive before a subscription ID is available; later subscription events reconcile it.
-        if (event.type !== "checkout.session.completed") throw error;
       });
+      }
     }
     return NextResponse.json({ received: true });
   } catch (error) {
