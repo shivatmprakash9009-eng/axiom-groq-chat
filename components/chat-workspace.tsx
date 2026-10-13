@@ -1,7 +1,7 @@
 "use client";
 
+import { onAuthStateChanged, signOut, type User } from "@firebase/auth";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
@@ -105,31 +105,31 @@ const promptSuggestions = [
 
 const availableModels = [
   {
-    id: "tiwat-4o",
-    name: "TIWAT 4o",
-    badge: "Smartest",
-    description: "Our most capable model for general text, reasoning & code",
+    id: "tiwat-balanced",
+    name: "TIWAT Balanced",
+    badge: "Balanced",
+    description: "Clear, balanced responses for everyday work.",
     style: "default" as const,
   },
   {
-    id: "tiwat-o1",
-    name: "TIWAT o1",
-    badge: "Reasoning",
-    description: "Uses deep thinking for complex math, science & algorithms",
+    id: "tiwat-detailed",
+    name: "TIWAT Detailed",
+    badge: "In-depth",
+    description: "More context, examples, and step-by-step detail.",
     style: "detailed" as const,
   },
   {
-    id: "tiwat-4o-mini",
-    name: "TIWAT 4o mini",
-    badge: "Fast",
-    description: "Lightweight and fast for quick, everyday answers",
-    style: "default" as const,
+    id: "tiwat-code",
+    name: "TIWAT Code",
+    badge: "Engineering",
+    description: "Technical explanations and code-focused responses.",
+    style: "code" as const,
   },
   {
     id: "tiwat-concise",
     name: "TIWAT Concise",
     badge: "Brief",
-    description: "Provides direct, concise answers without fluff",
+    description: "Short, direct responses without filler.",
     style: "concise" as const,
   },
 ];
@@ -218,9 +218,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [editTitleValue, setEditTitleValue] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedModelId, setSelectedModelId] = useState("tiwat-4o");
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [reasoningEnabled, setReasoningEnabled] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState("tiwat-balanced");
+  const [detailedStyleEnabled, setDetailedStyleEnabled] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -410,8 +409,12 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   }, [filteredChats]);
 
   const currentModel = useMemo(() => {
-    return availableModels.find((m) => m.id === selectedModelId) || availableModels[0];
-  }, [selectedModelId]);
+    return (
+      availableModels.find((model) => model.id === selectedModelId && model.style === settings.chatStyle) ||
+      availableModels.find((model) => model.style === settings.chatStyle) ||
+      availableModels[0]
+    );
+  }, [selectedModelId, settings.chatStyle]);
 
   const selectModel = (model: (typeof availableModels)[number]) => {
     setSelectedModelId(model.id);
@@ -478,7 +481,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         body: JSON.stringify({
           messages: historyToSend,
           stream: settings.streamResponses,
-          style: reasoningEnabled ? "detailed" : settings.chatStyle,
+          style: detailedStyleEnabled ? "detailed" : settings.chatStyle,
           customSystemPrompt: settings.customSystemPrompt || undefined,
           temperature: settings.temperature,
           guestMode,
@@ -612,9 +615,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     let apiPrompt = text;
     if (attachment) {
       apiPrompt = `${text}\n\n[Attached File: ${attachment.name}]\n${attachment.content}`;
-    }
-    if (webSearchEnabled) {
-      apiPrompt = `[Web Search Active] ${apiPrompt}`;
     }
 
     const chatId = activeChat?.id || uid();
@@ -1378,25 +1378,24 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                     </button>
                     <button
                       type="button"
-                      className={`icon-button ${webSearchEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
-                      onClick={() => {
-                        setWebSearchEnabled((prev) => !prev);
-                        toast.info(webSearchEnabled ? "Web search disabled" : "Web search enabled");
-                      }}
-                      title="Search web"
-                      aria-label="Search web"
+                      className="icon-button"
+                        onClick={() => {
+                          toast.info("Live web search is not connected. No web results will be fetched.");
+                        }}
+                        title="Live web search is not connected"
+                        aria-label="Live web search is not connected"
                     >
                       <Globe size={17} />
                     </button>
                     <button
                       type="button"
-                      className={`icon-button ${reasoningEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
-                      onClick={() => {
-                        setReasoningEnabled((prev) => !prev);
-                        toast.info(reasoningEnabled ? "Standard mode" : "Deep reasoning mode active");
-                      }}
-                      title="Reasoning mode"
-                      aria-label="Reasoning mode"
+                      className={`icon-button ${detailedStyleEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                        onClick={() => {
+                          setDetailedStyleEnabled(!detailedStyleEnabled);
+                          toast.info(detailedStyleEnabled ? "Saved response style restored" : "Detailed response style enabled");
+                        }}
+                        title="Detailed response style"
+                        aria-label="Detailed response style"
                     >
                       <Lightbulb size={17} />
                     </button>
@@ -1619,25 +1618,24 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   </button>
                   <button
                     type="button"
-                    className={`icon-button ${webSearchEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
-                    onClick={() => {
-                      setWebSearchEnabled((prev) => !prev);
-                      toast.info(webSearchEnabled ? "Web search disabled" : "Web search enabled");
-                    }}
-                    title="Search web"
-                    aria-label="Search web"
+                    className="icon-button"
+                        onClick={() => {
+                          toast.info("Live web search is not connected. No web results will be fetched.");
+                        }}
+                        title="Live web search is not connected"
+                        aria-label="Live web search is not connected"
                   >
                     <Globe size={17} />
                   </button>
                   <button
                     type="button"
-                    className={`icon-button ${reasoningEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
-                    onClick={() => {
-                      setReasoningEnabled((prev) => !prev);
-                      toast.info(reasoningEnabled ? "Standard mode" : "Deep reasoning mode active");
-                    }}
-                    title="Reasoning mode"
-                    aria-label="Reasoning mode"
+                    className={`icon-button ${detailedStyleEnabled ? "text-[var(--accent)] font-semibold" : ""}`}
+                        onClick={() => {
+                          setDetailedStyleEnabled(!detailedStyleEnabled);
+                          toast.info(detailedStyleEnabled ? "Saved response style restored" : "Detailed response style enabled");
+                        }}
+                        title="Detailed response style"
+                        aria-label="Detailed response style"
                   >
                     <Lightbulb size={17} />
                   </button>

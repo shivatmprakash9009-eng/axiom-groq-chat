@@ -114,9 +114,9 @@ The following details are important when evaluating or deploying the project:
 
 - **No cloud conversation sync:** chat history lives in the current browser’s local storage. Signing in on a different device does not transfer it.
 - **Guest history is browser-local too:** guest chats are not associated with a user account, but the current workspace uses browser local storage for conversation history in both modes. Clear chat history and/or browser site data on shared devices.
-- **No built-in live web search:** the web-search control currently adds a hint to the submitted prompt; the server does not call a search engine or provide web results. Do not treat responses as web-verified because that toggle is enabled.
+- **No built-in live web search:** the search control explains that live search is not connected. The server does not call a search engine or return web results.
 - **No multimodal file parsing:** attachments are read as text. Images, PDFs, and binary documents are not parsed by this attachment workflow.
-- **Model labels are presentation presets:** visible TIWAT model labels change response style; they do not guarantee a particular third-party model. The underlying provider and model depend on server configuration and routing.
+- **Response modes are style presets:** Balanced, Detailed, Code, and Concise control response style; they do not select a particular third-party model. The provider and model depend on server configuration and routing.
 - **No tool execution engine:** the system prompt can instruct the model to use available tools honestly, but the current chat route does not itself provide arbitrary code execution, web browsing, or external action tools.
 - **Fallback rate limiter is in-memory:** it is useful as a baseline but is not a distributed, durable quota across serverless instances. Configure a suitable external rate limiter for production traffic.
 - **No production SLA is implied:** availability, provider limits, latency, and costs depend on your deployment and selected third-party services.
@@ -204,8 +204,7 @@ Exact library versions are maintained in **package.json** and the lockfile.
 │   │   ├── types.ts               # Shared AI types
 │   │   └── providers/             # Gemini, Groq, OpenAI, Anthropic adapters
 │   ├── firebase/                  # Firebase web-auth initialization
-│   ├── security/                  # In-memory sliding-window rate limiter
-│   └── supabase/                  # Client helpers; not currently used for chat history
+│   └── security/                  # In-memory sliding-window rate limiter
 ├── stores/
 │   └── ui-store.ts                # Workspace appearance and settings state
 ├── tests/                         # Router, schema, and rate-limiter tests
@@ -282,8 +281,6 @@ Copy the variable names from **.env.example**. Configure only the integrations y
 | **NEXT_PUBLIC_FIREBASE_APP_ID** | Required for Firebase auth | Firebase web-app ID. |
 | **NEXT_PUBLIC_POSTHOG_KEY** | Optional | Enables PostHog analytics initialization. |
 | **NEXT_PUBLIC_POSTHOG_HOST** | Optional | PostHog host; defaults to the configured US endpoint in the analytics component. |
-| **NEXT_PUBLIC_SUPABASE_URL** | Currently optional scaffolding | Supabase URL variable retained in the template; chat history is not currently persisted to Supabase. |
-| **NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY** | Currently optional scaffolding | Supabase publishable key variable retained in the template; not required for current chat history. |
 
 Provider keys such as **GROQ_API_KEY**, **GEMINI_API_KEY**, **OPENAI_API_KEY**, and **ANTHROPIC_API_KEY** must stay server-side. Do not prefix them with **NEXT_PUBLIC_**.
 
@@ -320,10 +317,6 @@ Set **ARCJET_KEY** to enable the Arcjet protection path configured in the API ro
 ### PostHog
 
 Set **NEXT_PUBLIC_POSTHOG_KEY** and optionally **NEXT_PUBLIC_POSTHOG_HOST** to enable analytics initialization. The current analytics component enables page-view/page-leave capture, autocapture, and session recording with input-masking settings. Before enabling analytics for public users, review your disclosure, consent, retention, access-control, and applicable privacy requirements in the PostHog project and your deployment jurisdiction.
-
-### Supabase
-
-Supabase packages and environment-variable placeholders exist in the repository, but the current chat history flow is browser-local and does not sync conversations to Supabase. Do not assume account-based conversation storage or row-level-security protection is active simply because these packages or variables are present.
 
 ## Development and verification
 

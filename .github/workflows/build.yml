@@ -17,7 +17,9 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci
+      - name: Dependency audit
+        run: npm audit --audit-level=high
       - name: Lint checks
         run: npm run lint
       - name: TypeScript typecheck

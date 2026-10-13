@@ -17,10 +17,12 @@ test("buildSystemPrompt appends style guidelines", () => {
   assert.ok(codePrompt.includes("Style requirement: Prioritize production-ready code"));
 });
 
-test("buildSystemPrompt respects customSystemPrompt override", () => {
+test("buildSystemPrompt appends custom instructions without replacing base policy", () => {
   const custom = "Custom instructions for TIWAT.";
   const prompt = buildSystemPrompt({ customSystemPrompt: custom });
-  assert.ok(prompt.startsWith(custom));
+  assert.ok(prompt.startsWith(BASE_SYSTEM_PROMPT));
+  assert.ok(prompt.includes("<user_preferences>"));
+  assert.ok(prompt.includes(custom));
 });
 
 test("AIError subclasses have correct status codes and retryability", () => {

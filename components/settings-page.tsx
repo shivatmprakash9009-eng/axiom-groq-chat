@@ -1,9 +1,10 @@
 "use client";
 
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "@firebase/auth";
+import { ArrowLeft, Check, ChevronRight, Cpu, FileText, Globe2, HelpCircle, LockKeyhole, LogOut, Moon, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, UserRound, Zap } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, ChevronRight, FileText, Globe2, HelpCircle, LockKeyhole, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Moon, UserRound, Zap, Cpu, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { type ChatStyle, useUIStore } from "@/stores/ui-store";
@@ -32,7 +33,6 @@ export function SettingsPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [language, setLanguage] = useState("English");
-  const [expanded, setExpanded] = useState<string | null>(null);
   const settings = useUIStore((state) => state.settings);
   const updateSettings = useUIStore((state) => state.updateSettings);
   const appearance = useUIStore((state) => state.appearance);
@@ -89,7 +89,6 @@ export function SettingsPage() {
   };
 
   const scrollTo = (id: string) => {
-    setExpanded(id);
     window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
   };
 
@@ -99,7 +98,7 @@ export function SettingsPage() {
         <Link href="/chat" className="account-round-action" aria-label="Back to chat"><ArrowLeft size={23} /></Link>
         <div className="account-hero">
           <div className="account-avatar-edit">
-            {user?.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : <span>{initials(user)}</span>}
+            {user?.photoURL ? <Image src={user.photoURL} alt="" width={48} height={48} unoptimized referrerPolicy="no-referrer" /> : <span>{initials(user)}</span>}
           </div>
           <strong>{authLoading ? "Loading…" : user?.displayName || user?.email?.split("@")[0] || "Guest"}</strong>
         </div>
@@ -124,7 +123,7 @@ export function SettingsPage() {
           <h2>Account</h2>
           <div className="account-detail-card">
             <div className="account-account-identity">
-              <div className="account-detail-avatar">{user?.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : initials(user)}</div>
+              <div className="account-detail-avatar">{user?.photoURL ? <Image src={user.photoURL} alt="" width={48} height={48} unoptimized referrerPolicy="no-referrer" /> : initials(user)}</div>
               <div><strong>{user?.displayName || user?.email?.split("@")[0] || "Guest account"}</strong><small>{user?.email || "Not signed in"}</small></div>
             </div>
             <div className="account-detail-line"><span>Display name</span><strong>{user?.displayName || "Not set"}</strong></div>

@@ -16,9 +16,47 @@ const security = process.env.ARCJET_KEY
   : null;
 
 function getClientIdentifier(request: NextRequest): string {
+  // Prefer the platform-provided single IP header; x-forwarded-for may contain
+  // a client-supplied value when requests pass through untrusted proxies.
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() || "127.0.0.1";
-  return request.headers.get("x-real-ip") || "127.0.0.1";
+  return forwarded?.split(",")[0]?.trim() || "unknown-client";
+}
+
+async function readBoundedRequestBody(
+  request: NextRequest,
+  maxBytes: number
+): Promise<{ text: string; tooLarge: boolean }> {
+  if (!request.body) return { text: "", tooLarge: false };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { text: "", tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { text: new TextDecoder("utf-8", { fatal: true }).decode(body), tooLarge: false };
 }
 
 export async function POST(request: NextRequest) {
@@ -26,6 +64,12 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-request-id") ||
     (typeof globalThis.crypto?.randomUUID === "function" ? crypto.randomUUID() : String(Date.now()));
   const clientIp = getClientIdentifier(request);
+  const upstreamAbortController = new AbortController();
+  const upstreamSignal = AbortSignal.any([
+    request.signal,
+    upstreamAbortController.signal,
+    AbortSignal.timeout(55_000),
+  ]);
 
   try {
     // 1. Arcjet rate limiting if configured
@@ -57,9 +101,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Request parsing & schema validation
-    const payload: unknown = await request.json().catch(() => null);
-    if (!payload) {
+    // 3. Bound request-body parsing before JSON decoding.
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 1_000_000) {
+      return NextResponse.json(
+        { error: "Request body is too large." },
+        { status: 413, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    let body: { text: string; tooLarge: boolean };
+    try {
+      body = await readBoundedRequestBody(request, 1_000_000);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body encoding." },
+        { status: 400, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    if (body.tooLarge) {
+      return NextResponse.json(
+        { error: "Request body is too large." },
+        { status: 413, headers: { "x-request-id": correlationId } }
+      );
+    }
+    if (!body.text) {
+      return NextResponse.json(
+        { error: "Invalid JSON request payload." },
+        { status: 400, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(body.text);
+    } catch {
       return NextResponse.json(
         { error: "Invalid JSON request payload." },
         { status: 400, headers: { "x-request-id": correlationId } }
@@ -99,13 +176,27 @@ export async function POST(request: NextRequest) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
           cache: "no-store",
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]),
         }
       ).catch(() => null);
 
-      if (!verification?.ok) {
+      if (!verification) {
         return NextResponse.json(
-          { error: "Your sign-in session is invalid or expired. Please sign in again." },
-          { status: 401, headers: { "x-request-id": correlationId } }
+          { error: "Sign-in verification is temporarily unavailable. Please retry." },
+          { status: 503, headers: { "x-request-id": correlationId } }
+        );
+      }
+
+      if (!verification.ok) {
+        const status = verification.status >= 500 ? 503 : 401;
+        return NextResponse.json(
+          {
+            error:
+              status === 503
+                ? "Sign-in verification is temporarily unavailable. Please retry."
+                : "Your sign-in session is invalid or expired. Please sign in again.",
+          },
+          { status, headers: { "x-request-id": correlationId } }
         );
       }
 
@@ -126,6 +217,7 @@ export async function POST(request: NextRequest) {
         customSystemPrompt,
         temperature,
         correlationId,
+        signal: upstreamSignal,
       });
 
       const readableStream = new ReadableStream({
@@ -135,13 +227,30 @@ export async function POST(request: NextRequest) {
               const data = JSON.stringify(chunk);
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            controller.close();
+            if (!request.signal.aborted && !upstreamAbortController.signal.aborted) {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            }
           } catch (streamError) {
-            const errorMsg = streamError instanceof Error ? streamError.message : "Stream generation failed";
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`));
-            controller.close();
+            const clientDisconnected = request.signal.aborted || upstreamAbortController.signal.aborted;
+            if (!clientDisconnected) {
+              const reason = streamError instanceof Error ? streamError.message : "Unknown stream error";
+              console.error(`[TIWAT ${correlationId}] Stream generation failed: ${reason}`);
+              try {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ error: "TIWAT could not complete that response. Please try again." })}\n\n`
+                  )
+                );
+                controller.close();
+              } catch {
+                // The client may have closed the stream between the abort check and enqueue.
+              }
+            }
           }
+        },
+        cancel() {
+          upstreamAbortController.abort();
         },
       });
 
@@ -161,6 +270,7 @@ export async function POST(request: NextRequest) {
       customSystemPrompt,
       temperature,
       correlationId,
+      signal: upstreamSignal,
     });
 
     return NextResponse.json(
