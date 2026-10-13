@@ -1,6 +1,6 @@
 "use client";
 
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "@firebase/auth";
 import { ArrowLeft, Check, ChevronRight, Cpu, FileText, Globe2, HelpCircle, LockKeyhole, LogOut, Moon, Palette, ShieldCheck, SlidersHorizontal, Sparkles, Sun, UserRound, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
