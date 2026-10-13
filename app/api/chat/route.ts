@@ -157,11 +157,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages, stream, style, customSystemPrompt, language, temperature, guestMode } = parsed.data;
+    const { messages, stream, style, customSystemPrompt, language, temperature } = parsed.data;
 
-    // Registered sessions must be validated server-side. Guest mode stays temporary,
-    // with the existing per-IP rate limiter protecting anonymous model access.
-    if (!guestMode) {
+    // Every model request requires a valid registered Firebase session.
+    {
       const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
       const bearer = request.headers.get("authorization") || "";
       const idToken = bearer.startsWith("Bearer ") ? bearer.slice(7).trim() : "";
@@ -215,8 +214,7 @@ export async function POST(request: NextRequest) {
       authenticatedUid = verifiedUser.users[0].localId;
     }
 
-    // Durable quota enforcement applies to signed-in accounts. Guest sessions remain
-    // protected by the IP limiter until a separate anonymous quota policy is defined.
+    // All requests are authenticated and use durable per-account quota enforcement.
     if (authenticatedUid) {
       const inputCharacters = messages.reduce((total, message) => total + message.content.length, 0);
       if (inputCharacters > PLAN_LIMITS.enterprise.maxInputCharacters) {
