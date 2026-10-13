@@ -46,10 +46,10 @@ export function ResponseChart({ chart }: { chart: ResponseChartData }) {
     {chart.title && <figcaption className="response-chart-title">{chart.title}</figcaption>}
     {chart.type === "pie" ? <div className="response-pie-layout">
       <svg viewBox="0 0 260 245" role="img" aria-label={chart.title || "Pie chart"}>
-        {slices.map((slice, index) => <path key={`${slice.label}-${slice.value}`} d={slice.d} fill={slice.color} stroke="var(--surface)" strokeWidth="2" />)}
+        {slices.map((slice) => <path key={`${slice.label}-${slice.value}`} d={slice.d} fill={slice.color} stroke="var(--surface)" strokeWidth="2" />)}
       </svg>
       <ul className="response-chart-legend">
-        {slices.map((slice, index) => <li key={`${slice.label}-${slice.value}`}><span style={{ background: slice.color }} /><span>{slice.label}</span><strong>{formatValue(slice.value)}</strong></li>)}
+        {slices.map((slice) => <li key={`${slice.label}-${slice.value}`}><span style={{ background: slice.color }} /><span>{slice.label}</span><strong>{formatValue(slice.value)}</strong></li>)}
       </ul>
     </div> : <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={chart.title || `${chart.type} chart`}>
       {[0,1,2,3,4].map((tick) => {
@@ -60,7 +60,7 @@ export function ResponseChart({ chart }: { chart: ResponseChartData }) {
         const band = plotWidth / points.length, barWidth = Math.min(42, band * 0.62);
         return <g key={`${point.label}-${point.value}`}><rect x={point.x-barWidth/2} y={Math.min(point.y,zeroY)} width={barWidth} height={Math.max(1,Math.abs(zeroY-point.y))} rx="5" fill={colors[index % colors.length]} /><text x={point.x} y={height-30} textAnchor="middle" fill="var(--text-secondary)" fontSize="11">{point.label.slice(0,12)}</text><text x={point.x} y={Math.max(top+12,Math.min(point.y,zeroY)-7)} textAnchor="middle" fill="var(--text)" fontSize="11" fontWeight="600">{formatValue(point.value)}</text></g>;
       })}
-      {chart.type === "line" && <><polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#7777f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{points.map((point,index) => <g key={`${point.label}-${point.value}`}><circle cx={point.x} cy={point.y} r="4.5" fill="#7777f6" stroke="var(--surface)" strokeWidth="2" /><text x={point.x} y={height-30} textAnchor="middle" fill="var(--text-secondary)" fontSize="11">{point.label.slice(0,12)}</text><text x={point.x} y={point.y-11} textAnchor="middle" fill="var(--text)" fontSize="11" fontWeight="600">{formatValue(point.value)}</text></g>)}</>}
+      {chart.type === "line" && <><polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#7777f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{points.map((point) => <g key={`${point.label}-${point.value}`}><circle cx={point.x} cy={point.y} r="4.5" fill="#7777f6" stroke="var(--surface)" strokeWidth="2" /><text x={point.x} y={height-30} textAnchor="middle" fill="var(--text-secondary)" fontSize="11">{point.label.slice(0,12)}</text><text x={point.x} y={point.y-11} textAnchor="middle" fill="var(--text)" fontSize="11" fontWeight="600">{formatValue(point.value)}</text></g>)}</>}
       {chart.xLabel && <text x={left+plotWidth/2} y={height-5} textAnchor="middle" fill="var(--text-tertiary)" fontSize="11">{chart.xLabel}</text>}
       {chart.yLabel && <text transform={`translate(14 ${top+plotHeight/2}) rotate(-90)`} textAnchor="middle" fill="var(--text-tertiary)" fontSize="11">{chart.yLabel}</text>}
     </svg>}
