@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
     });
     if (!inserted.length) return NextResponse.json({ received: true, duplicate: true });
 
-    if (subscriptionEvent && uid) {
+    // Checkout completion alone is not proof of an active subscription. The
+    // subscription.created/updated webhook is the source of entitlement truth.
+    if (subscriptionEvent && uid && event.type !== "checkout.session.completed") {
       const customer = typeof object.customer === "string" ? object.customer : null;
       const subscriptionId = typeof object.subscription === "string" ? object.subscription :
         (typeof object.id === "string" && object.id.startsWith("sub_") ? object.id : null);
@@ -61,7 +63,10 @@ export async function POST(request: NextRequest) {
 
       await supabaseRest("tiwat_accounts?on_conflict=firebase_uid", {
         method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify({ firebase_uid: uid, plan: event.type === "customer.subscription.deleted" ? "free" : (plan || "free") }),
+        body: JSON.stringify({
+          firebase_uid: uid,
+          plan: event.type !== "customer.subscription.deleted" && (status === "active" || status === "trialing") ? (plan || "free") : "free",
+        }),
       });
       await supabaseRest("tiwat_subscriptions?on_conflict=stripe_subscription_id", {
         method: "POST", headers: { prefer: "resolution=merge-duplicates" },
