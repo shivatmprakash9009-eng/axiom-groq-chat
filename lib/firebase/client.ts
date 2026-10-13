@@ -1,11 +1,11 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "@firebase/app";
 import {
   type Auth,
   browserLocalPersistence,
   browserPopupRedirectResolver,
   getAuth,
   initializeAuth,
-} from "firebase/auth";
+} from "@firebase/auth";
 
 export function getFirebaseAuth(): Auth {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
