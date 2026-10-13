@@ -63,7 +63,9 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
-const STORAGE_KEY = "tiwat.chats.v1";
+const STORAGE_KEY = "tiwat.chats.v1"; // Legacy shared key; never load this into a signed-in account.
+const GUEST_STORAGE_KEY = "tiwat.chats.guest.v1";
+const userStorageKey = (userId: string) => "tiwat.chats.user." + userId + ".v1";
 const FALLBACK_KEYS = ["axiom.workspace.chats.v3", "axiom.groq-chat.v2"];
 const MAX_HISTORY = 100;
 /** Within this distance of the bottom, the view keeps following new text. */
@@ -139,11 +141,11 @@ function titleFrom(text: string) {
   return clean.length > 40 ? `${clean.slice(0, 39).trimEnd()}…` : clean || "New chat";
 }
 
-function readHistory(): Chat[] {
+function readHistory(storageKey = STORAGE_KEY, allowLegacyFallback = true): Chat[] {
   if (typeof window === "undefined") return [];
   try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    let raw = localStorage.getItem(storageKey);
+    if (!raw && allowLegacyFallback) {
       for (const k of FALLBACK_KEYS) {
         raw = localStorage.getItem(k);
         if (raw) break;
@@ -227,6 +229,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [cloudHistoryReady, setCloudHistoryReady] = useState(false);
+  const [historyOwner, setHistoryOwner] = useState<string | null>(null);
   const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
   const [search, setSearch] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -285,7 +288,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   // Hydration & initial load
   useEffect(() => {
-    setChats(readHistory());
+    setChats(guestMode ? readHistory(GUEST_STORAGE_KEY, false) : []);
+    setHistoryOwner(guestMode ? "guest" : null);
     setHydrated(true);
 
     useUIStore.getState().hydrateAppearance();
@@ -313,6 +317,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     if (!guestMode) {
       try {
         const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+          // Do not carry history from one account into another session.
+          setCloudHistoryReady(false);
+          setHistoryOwner(null);
+          setChats([]);
           setFirebaseUser(user);
         });
         return () => unsubscribe();
@@ -322,15 +330,23 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
   }, [guestMode]);
 
-  // Persist chats locally for guest/offline continuity.
+  // Persist histories in separate guest and per-account namespaces.
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0, MAX_HISTORY)));
-    } catch {
-      // ignore
+    let key: string;
+    if (guestMode) {
+      if (historyOwner !== "guest") return;
+      key = GUEST_STORAGE_KEY;
+    } else {
+      if (!firebaseUser || historyOwner !== firebaseUser.uid || !cloudHistoryReady) return;
+      key = userStorageKey(firebaseUser.uid);
     }
-  }, [chats, hydrated]);
+    try {
+      localStorage.setItem(key, JSON.stringify(chats.slice(0, MAX_HISTORY)));
+    } catch {
+      // ignore unavailable storage
+    }
+  }, [chats, cloudHistoryReady, firebaseUser, guestMode, historyOwner, hydrated]);
 
   // Load the signed-in user's history from the server.
   useEffect(() => {
@@ -340,6 +356,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
     let cancelled = false;
     setCloudHistoryReady(false);
+    setHistoryOwner(null);
+    setChats([]);
     void (async () => {
       try {
         const token = await firebaseUser.getIdToken();
@@ -355,7 +373,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         if (remote.length) {
           setChats(remote);
         } else {
-          const local = readHistory();
+          // Only migrate history already scoped to this UID, never the legacy shared browser key.
+          const local = readHistory(userStorageKey(firebaseUser.uid), false);
           if (local.length) {
             const upload = await fetch("/api/chats", {
               method: "PUT",
@@ -364,10 +383,17 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             });
             if (!upload.ok) { const result = await upload.json().catch(() => null) as { error?: unknown } | null; throw new Error(typeof result?.error === "string" ? result.error : `Local history migration failed (HTTP ${upload.status}).`); }
             if (!cancelled) setChats(local);
+          } else {
+            setChats([]);
           }
         }
+        if (!cancelled) setHistoryOwner(firebaseUser.uid);
       } catch (error) {
-        if (!cancelled) toast.error(error instanceof Error ? error.message : "Cloud chat sync failed.");
+        if (!cancelled) {
+          setChats(readHistory(userStorageKey(firebaseUser.uid), false));
+          setHistoryOwner(firebaseUser.uid);
+          toast.error(error instanceof Error ? error.message : "Cloud chat sync failed.");
+        }
       } finally {
         if (!cancelled) setCloudHistoryReady(true);
       }
@@ -955,7 +981,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       }).catch((error) => console.error("[TIWAT] Cloud history clear failed", error));
     }
     void setActiveId(null);
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(guestMode ? GUEST_STORAGE_KEY : firebaseUser ? userStorageKey(firebaseUser.uid) : STORAGE_KEY); } catch { /* ignore */ }
     toast.success("Chat history cleared");
   };
 
