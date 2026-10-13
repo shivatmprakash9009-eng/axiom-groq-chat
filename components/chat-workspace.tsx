@@ -16,7 +16,6 @@ import {
   FileText,
   Globe,
   Lightbulb,
-  LogIn,
   LogOut,
   Menu,
   Moon,
@@ -355,7 +354,7 @@ export function ChatWorkspace() {
           setChats(remote);
         } else {
           // Only migrate history already scoped to this UID, never the legacy shared browser key.
-          const local = readHistory(userStorageKey(firebaseUser.uid), false);
+          const local = readHistory(userStorageKey(firebaseUser.uid));
           if (local.length) {
             const upload = await fetch("/api/chats", {
               method: "PUT",
@@ -371,7 +370,7 @@ export function ChatWorkspace() {
         if (!cancelled) setHistoryOwner(firebaseUser.uid);
       } catch (error) {
         if (!cancelled) {
-          setChats(readHistory(userStorageKey(firebaseUser.uid), false));
+          setChats(readHistory(userStorageKey(firebaseUser.uid)));
           setHistoryOwner(firebaseUser.uid);
           toast.error(error instanceof Error ? error.message : "Cloud chat sync failed.");
         }
