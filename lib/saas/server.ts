@@ -37,8 +37,16 @@ export async function supabaseRest<T>(path: string, init: RequestInit = {}): Pro
   if (!response) throw new SaaSError("SaaS storage is temporarily unavailable.", 503);
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    console.error("[TIWAT SaaS] Supabase request failed", response.status, detail.slice(0, 300));
-    throw new SaaSError("SaaS storage request failed.", response.status >= 500 ? 503 : 400);
+    let providerCode = "";
+    try {
+      const parsed = JSON.parse(detail) as { code?: unknown };
+      if (typeof parsed.code === "string" && /^[A-Z0-9]+$/.test(parsed.code)) providerCode = parsed.code;
+    } catch {
+      // Supabase may return a non-JSON error body.
+    }
+    console.error("[TIWAT SaaS] Supabase request failed", response.status, detail.slice(0, 500));
+    const diagnostic = `Supabase request failed (HTTP ${response.status}${providerCode ? `, ${providerCode}` : ""}).`;
+    throw new SaaSError(diagnostic, response.status >= 500 ? 503 : 400);
   }
   if (response.status === 204) return undefined as T;
   return await response.json() as T;
