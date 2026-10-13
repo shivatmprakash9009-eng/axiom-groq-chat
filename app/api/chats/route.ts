@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest) {
       };
     });
     if (chats.length) {
-      await supabaseRest<unknown>("tiwat_chats?on_conflict=id", {
+      await supabaseRest<unknown>("tiwat_chats?on_conflict=firebase_uid,id", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(chats),
