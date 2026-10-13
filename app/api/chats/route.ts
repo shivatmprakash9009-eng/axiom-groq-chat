@@ -44,29 +44,42 @@ export async function PUT(request: NextRequest) {
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify([{ firebase_uid: user.uid, email: user.email || null }]),
     });
-    const chats = payload.chats.map((value) => {
-      const item = value as Partial<ChatRow>;
+    // One malformed (e.g. legacy) chat must not block every other chat from syncing,
+    // so invalid entries are skipped and reported instead of failing the whole batch.
+    let skipped = 0;
+    const chats: Array<{ id: string; firebase_uid: string; title: string; messages: ChatMessage[]; updated_at: string }> = [];
+    for (const value of payload.chats) {
+      const item = (value ?? {}) as Partial<ChatRow>;
       if (typeof item.id !== "string" || item.id.length < 1 || item.id.length > 100 ||
           typeof item.title !== "string" || item.title.length > 200 ||
           !Array.isArray(item.messages) || item.messages.length > 500) {
-        throw new SaaSError("A chat in the history payload is invalid.", 400);
+        skipped += 1;
+        continue;
       }
-      const messages = item.messages.map((message) => {
-        const m = message as Partial<ChatMessage>;
-        if (typeof m.id !== "string" || (m.role !== "user" && m.role !== "assistant") ||
+      const messages: ChatMessage[] = [];
+      let valid = true;
+      for (const message of item.messages) {
+        const m = (message ?? {}) as Partial<ChatMessage>;
+        if (typeof m.id !== "string" || !m.id || (m.role !== "user" && m.role !== "assistant") ||
             typeof m.content !== "string" || m.content.length > 200_000) {
-          throw new SaaSError("A chat message is invalid.", 400);
+          valid = false;
+          break;
         }
-        return { id: m.id, role: m.role, content: m.content };
-      });
-      return {
+        messages.push({ id: m.id, role: m.role, content: m.content });
+      }
+      if (!valid) {
+        skipped += 1;
+        continue;
+      }
+      const parsedDate = typeof item.updated_at === "string" ? Date.parse(item.updated_at) : Number.NaN;
+      chats.push({
         id: item.id,
         firebase_uid: user.uid,
         title: item.title || "New chat",
         messages,
-        updated_at: typeof item.updated_at === "string" ? item.updated_at : new Date().toISOString(),
-      };
-    });
+        updated_at: Number.isNaN(parsedDate) ? new Date().toISOString() : new Date(parsedDate).toISOString(),
+      });
+    }
     if (chats.length) {
       await supabaseRest<unknown>("tiwat_chats?on_conflict=firebase_uid,id", {
         method: "POST",
@@ -74,7 +87,7 @@ export async function PUT(request: NextRequest) {
         body: JSON.stringify(chats),
       });
     }
-    return NextResponse.json({ ok: true, saved: chats.length }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, saved: chats.length, skipped }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return fail(error);
   }
