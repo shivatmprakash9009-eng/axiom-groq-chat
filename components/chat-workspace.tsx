@@ -553,6 +553,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           }
         }
 
+        if (!accumulated.trim()) {
+          throw new Error("TIWAT stream ended without a response. Please try again.");
+        }
+
         setChats((current) =>
           current
             .map((chat) =>
@@ -563,7 +567,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                     updatedAt: Date.now(),
                     messages: chat.messages.map((m) =>
                       m.id === placeholderId
-                        ? { ...m, content: accumulated || "I am here to help. What would you like to explore?" }
+                        ? { ...m, content: accumulated }
                         : m
                     ),
                   }
