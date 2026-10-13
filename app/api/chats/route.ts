@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { SaaSError, supabaseRest, verifyFirebaseToken } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
