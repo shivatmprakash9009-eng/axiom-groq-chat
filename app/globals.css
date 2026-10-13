@@ -1293,12 +1293,20 @@ textarea:focus-visible,
 }
 
 
-/* Word-by-word assistant response reveal */
+/* Word-by-word assistant response reveal: the caret sits at the end of the last text block. */
 .typewriter-response {
   overflow-wrap: anywhere;
 }
 
-.typewriter-caret {
+.typewriter-response.is-typing > p:last-child::after,
+.typewriter-response.is-typing > h1:last-child::after,
+.typewriter-response.is-typing > h2:last-child::after,
+.typewriter-response.is-typing > h3:last-child::after,
+.typewriter-response.is-typing > h4:last-child::after,
+.typewriter-response.is-typing > ul:last-child > li:last-child::after,
+.typewriter-response.is-typing > ol:last-child > li:last-child::after,
+.typewriter-response.is-typing > blockquote:last-child > p:last-child::after {
+  content: "";
   display: inline-block;
   width: 0.48em;
   height: 1em;
@@ -1316,10 +1324,57 @@ textarea:focus-visible,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .typewriter-caret {
+  .typewriter-response.is-typing > p:last-child::after,
+  .typewriter-response.is-typing > h1:last-child::after,
+  .typewriter-response.is-typing > h2:last-child::after,
+  .typewriter-response.is-typing > h3:last-child::after,
+  .typewriter-response.is-typing > h4:last-child::after,
+  .typewriter-response.is-typing > ul:last-child > li:last-child::after,
+  .typewriter-response.is-typing > ol:last-child > li:last-child::after,
+  .typewriter-response.is-typing > blockquote:last-child > p:last-child::after {
     animation: none;
     opacity: 0.45;
   }
+}
+
+/* Scroll frame: lets the "Latest" button float over the conversation without scrolling with it. */
+.main-scroll-frame {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.scroll-jump {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: 14px;
+  left: 0;
+  display: inline-flex;
+  width: max-content;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  padding: 0 14px 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px -12px rgba(26, 23, 51, 0.4);
+  animation: rise 0.2s ease both;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.scroll-jump:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong));
+  color: var(--accent-ink);
 }
 
 

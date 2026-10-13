@@ -29,6 +29,14 @@ export function SettingsPage() {
   const updateSettings = useUIStore((state) => state.updateSettings);
   const appearance = useUIStore((state) => state.appearance);
   const setAppearance = useUIStore((state) => state.setAppearance);
+  const hydrateAppearance = useUIStore((state) => state.hydrateAppearance);
+  const [appearanceReady, setAppearanceReady] = useState(false);
+
+  // Apply the saved light/dark choice before the page is shown, so it never flashes the wrong theme.
+  useEffect(() => {
+    hydrateAppearance();
+    setAppearanceReady(true);
+  }, [hydrateAppearance]);
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -73,7 +81,10 @@ export function SettingsPage() {
   };
 
   return (
-    <main className={`account-settings-page ${appearance === "dark" ? "theme-dark" : ""}`}>
+    <main
+      className={`account-settings-page ${appearance === "dark" ? "theme-dark" : ""}`}
+      style={appearanceReady ? undefined : { opacity: 0 }}
+    >
       <header className="account-settings-top">
         <Link href="/chat" className="account-round-action" aria-label="Back to chat"><span aria-hidden="true">←</span></Link>
         <div className="account-hero">
@@ -145,7 +156,7 @@ export function SettingsPage() {
           <h2>General</h2>
           <div className="account-detail-card">
             <strong>Appearance</strong>
-            <div className="account-style-grid"><button className={`account-style-option ${appearance === "light" ? "selected" : ""}`} type="button" onClick={() => { setAppearance("light"); try { localStorage.setItem("axiom.appearance", "light"); } catch {} }}><Sun size={17} /><span>Light mode</span></button><button className={`account-style-option ${appearance === "dark" ? "selected" : ""}`} type="button" onClick={() => { setAppearance("dark"); try { localStorage.setItem("axiom.appearance", "dark"); } catch {} }}><Moon size={17} /><span>Dark mode</span></button></div>
+            <div className="account-style-grid"><button className={`account-style-option ${appearance === "light" ? "selected" : ""}`} type="button" onClick={() => setAppearance("light")}><Sun size={17} /><span>Light mode</span></button><button className={`account-style-option ${appearance === "dark" ? "selected" : ""}`} type="button" onClick={() => setAppearance("dark")}><Moon size={17} /><span>Dark mode</span></button></div>
           </div>
         </section>
 

@@ -1,6 +1,26 @@
 import { create } from "zustand";
 
 export type Appearance = "light" | "dark";
+
+export const APPEARANCE_STORAGE_KEY = "axiom.appearance";
+
+function readStoredAppearance(): Appearance | null {
+  try {
+    const saved = localStorage.getItem(APPEARANCE_STORAGE_KEY);
+    return saved === "light" || saved === "dark" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeAppearance(appearance: Appearance) {
+  try {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance);
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data); the choice then lasts for this visit.
+  }
+}
+
 export type ChatStyle = "default" | "concise" | "detailed" | "code";
 
 export interface WorkspaceSettings {
@@ -14,7 +34,6 @@ interface UIState {
   sidebarOpen: boolean;
   mobileSidebarOpen: boolean;
   appearance: Appearance;
-  settingsModalOpen: boolean;
   shortcutsModalOpen: boolean;
   settings: WorkspaceSettings;
   stats: {
@@ -26,7 +45,8 @@ interface UIState {
   toggleSidebar: () => void;
   toggleAppearance: () => void;
   setAppearance: (appearance: Appearance) => void;
-  setSettingsModalOpen: (open: boolean) => void;
+  /** Applies the saved light/dark choice. Call once on the client after mount. */
+  hydrateAppearance: () => void;
   setShortcutsModalOpen: (open: boolean) => void;
   updateSettings: (partial: Partial<WorkspaceSettings>) => void;
   incrementStats: (promptChars: number) => void;
@@ -36,7 +56,6 @@ export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   mobileSidebarOpen: false,
   appearance: "dark",
-  settingsModalOpen: false,
   shortcutsModalOpen: false,
   settings: {
     chatStyle: "default",
@@ -52,9 +71,19 @@ export const useUIStore = create<UIState>((set) => ({
   setMobileSidebarOpen: (mobileSidebarOpen) => set({ mobileSidebarOpen }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   toggleAppearance: () =>
-    set((state) => ({ appearance: state.appearance === "light" ? "dark" : "light" })),
-  setAppearance: (appearance) => set({ appearance }),
-  setSettingsModalOpen: (settingsModalOpen) => set({ settingsModalOpen }),
+    set((state) => {
+      const appearance: Appearance = state.appearance === "light" ? "dark" : "light";
+      storeAppearance(appearance);
+      return { appearance };
+    }),
+  setAppearance: (appearance) => {
+    storeAppearance(appearance);
+    set({ appearance });
+  },
+  hydrateAppearance: () => {
+    const saved = readStoredAppearance();
+    if (saved) set({ appearance: saved });
+  },
   setShortcutsModalOpen: (shortcutsModalOpen) => set({ shortcutsModalOpen }),
   updateSettings: (partial) =>
     set((state) => ({

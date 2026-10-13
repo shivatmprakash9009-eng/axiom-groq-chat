@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowDown,
   ArrowUp,
   Check,
   ChevronDown,
@@ -37,6 +38,8 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { parseAsString, useQueryState } from "nuqs";
 import {
   type ChangeEvent,
@@ -48,11 +51,8 @@ import {
   useState,
 } from "react";
 import { useForm } from "react-hook-form";
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import { CodeBlock } from "@/components/code-block";
+import { MarkdownContent, TypewriterMarkdown } from "@/components/markdown-content";
 import { ShortcutsModal } from "@/components/shortcuts-modal";
 import { TiwatLogo } from "@/components/tiwat-logo";
 import type { ComposerValues, ConversationMessage } from "@/lib/ai/schema";
@@ -66,6 +66,8 @@ type Attachment = { name: string; content: string; size: number };
 const STORAGE_KEY = "tiwat.chats.v1";
 const FALLBACK_KEYS = ["axiom.workspace.chats.v3", "axiom.groq-chat.v2"];
 const MAX_HISTORY = 100;
+/** Within this distance of the bottom, the view keeps following new text. */
+const NEAR_BOTTOM_PX = 24;
 
 const uid = () =>
   globalThis.crypto?.randomUUID?.() ||
@@ -199,64 +201,8 @@ function groupChatsByDate(chats: Chat[]) {
   return Object.entries(groups).filter(([_, items]) => items.length > 0);
 }
 
-function TypewriterMarkdown({
-  content,
-  isComplete,
-  onComplete,
-}: {
-  content: string;
-  isComplete: boolean;
-  onComplete: () => void;
-}) {
-  const [visibleCount, setVisibleCount] = useState(0);
-  const completedRef = useRef(false);
-  const words = content.match(/\S+\s*/g) || [];
-  const visibleText = words.slice(0, visibleCount).join("");
-
-  useEffect(() => {
-    if (visibleCount < words.length) {
-      const timer = window.setTimeout(() => {
-        setVisibleCount((count) => Math.min(count + 1, words.length));
-      }, 28);
-      return () => window.clearTimeout(timer);
-    }
-
-    if (isComplete && !completedRef.current) {
-      completedRef.current = true;
-      onComplete();
-    }
-  }, [visibleCount, words.length, isComplete, onComplete]);
-
-  return (
-    <div className="markdown-body typewriter-response" aria-live="off">
-      {visibleCount < words.length ? (
-        <>
-          <span className="whitespace-pre-wrap">{visibleText}</span>
-          <span className="typewriter-caret" aria-hidden="true" />
-        </>
-      ) : (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeHighlight]}
-          components={{
-            code({ className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || "");
-              const codeString = String(children).replace(/\n$/, "");
-              if (match || codeString.includes("\n")) {
-                return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
-              }
-              return <code className={className} {...props}>{children}</code>;
-            },
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      )}
-    </div>
-  );
-}
-
 export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
+  const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [activeId, setActiveId] = useQueryState("c", parseAsString.withOptions({ history: "replace" }));
@@ -279,7 +225,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const centerComposerRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const appearance = useUIStore((state) => state.appearance);
@@ -317,14 +267,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     setChats(readHistory());
     setHydrated(true);
 
-    try {
-      const saved = localStorage.getItem("axiom.appearance");
-      if (saved === "dark" || saved === "light") {
-        useUIStore.getState().setAppearance(saved);
-      }
-    } catch {
-      // browser storage
-    }
+    useUIStore.getState().hydrateAppearance();
 
     try {
       const rawPreferences = localStorage.getItem("tiwat.preferences.v1");
@@ -368,12 +311,65 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     }
   }, [chats, hydrated]);
 
-  // Auto-scroll on new messages
-  useEffect(() => {
-    if (messages.length) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  // Stop any reply still in flight when leaving the workspace.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const hasMessages = messages.length > 0;
+
+  const scrollToLatest = (behavior: ScrollBehavior) => {
+    const scroller = scrollRef.current;
+    if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+  };
+
+  const handleScroll = () => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    const scrolledUp = scroller.scrollTop < lastScrollTopRef.current - 1;
+    lastScrollTopRef.current = scroller.scrollTop;
+
+    if (distanceFromBottom <= NEAR_BOTTOM_PX) {
+      stickToBottomRef.current = true;
+      setShowJumpToLatest(false);
+    } else if (scrolledUp) {
+      // The reader scrolled up on purpose: stop following new text until they come back.
+      stickToBottomRef.current = false;
+      setShowJumpToLatest(true);
     }
-  }, [messages.length, activeId]);
+  };
+
+  const jumpToLatest = () => {
+    stickToBottomRef.current = true;
+    setShowJumpToLatest(false);
+    scrollToLatest(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+  };
+
+  // Opening a chat always lands on its latest message.
+  useEffect(() => {
+    stickToBottomRef.current = true;
+    lastScrollTopRef.current = 0;
+    setShowJumpToLatest(false);
+    scrollToLatest("auto");
+  }, [activeId]);
+
+  // Sending a message (or regenerating) re-engages follow mode.
+  useEffect(() => {
+    if (!messages.length) return;
+    stickToBottomRef.current = true;
+    scrollToLatest(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+  }, [messages.length]);
+
+  // Follow the reply as it grows (streaming, typing, code blocks, images) while the reader is at the bottom.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottomRef.current) scroller.scrollTop = scroller.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [activeId, hasMessages]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -388,7 +384,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         startNewChat();
       } else if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
-        window.location.href = "/settings";
+        openSettings();
       } else if (e.key === "Escape") {
         setShortcutsModalOpen(false);
         setMobileSidebarOpen(false);
@@ -421,6 +417,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     setSelectedModelId(model.id);
     updateSettings({ chatStyle: model.style });
     toast.info(`Switched to ${model.name}`);
+  };
+
+  const openSettings = () => {
+    setMobileSidebarOpen(false);
+    router.push("/settings");
   };
 
   const startNewChat = () => {
@@ -855,7 +856,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   };
 
   return (
-    <div className={`app-shell ${appearance === "dark" ? "theme-dark" : ""}`}>
+    <div
+      className={`app-shell ${appearance === "dark" ? "theme-dark" : ""}`}
+      style={hydrated ? undefined : { opacity: 0 }}
+    >
       {/* Keyboard shortcuts dialog */}
       <ShortcutsModal />
 
@@ -951,8 +955,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
           <button type="button" className="mobile-drawer-nav-item" onClick={startNewChat}><PenLine size={21} /><span>New chat</span></button>
           <button type="button" className="mobile-drawer-nav-item" onClick={() => { setMobileSearchOpen(true); window.setTimeout(() => document.getElementById("sidebar-search")?.focus(), 50); }}><Search size={21} /><span>Search conversations</span></button>
           <button type="button" className="mobile-drawer-nav-item" onClick={() => { setShortcutsModalOpen(true); setMobileSidebarOpen(false); }}><Command size={21} /><span>Keyboard shortcuts</span></button>
-          <a href="/settings" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><Settings size={21} /><span>Settings</span></a>
-          <a href="/privacy" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><ShieldCheck size={21} /><span>Privacy & security</span></a>
+          <Link href="/settings" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><Settings size={21} /><span>Settings</span></Link>
+          <Link href="/privacy" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><ShieldCheck size={21} /><span>Privacy & security</span></Link>
         </div>
         <div className="mobile-recent-heading">Recents</div>
         {/* Date-Grouped History Section */}
@@ -1051,7 +1055,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
         {/* User Account Footer */}
         <div className="sidebar-footer">
-          <button type="button" className="user-avatar-circle" onClick={() => { window.location.href = "/settings"; }} aria-label="Open account settings" title="Account settings">
+          <button type="button" className="user-avatar-circle" onClick={openSettings} aria-label="Open account settings" title="Account settings">
             {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
           </button>
           <div className="sidebar-footer-text">
@@ -1073,7 +1077,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               <DropdownMenu.Content align="end" side="top" sideOffset={8} className="dropdown-content">
                 <DropdownMenu.Item
                   className="dropdown-item"
-                  onSelect={() => window.location.href = "/settings"}
+                  onSelect={openSettings}
                 >
                   <Settings size={15} />
                   <span>Settings</span>
@@ -1132,7 +1136,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         </div>
         <div className="mobile-drawer-bottom">
           <button type="button" className="mobile-chat-button" onClick={startNewChat}><PenLine size={18} /><span>Chat</span></button>
-          <button type="button" className="mobile-profile-button" onClick={() => { window.location.href = "/settings"; }} aria-label="Open account settings">
+          <button type="button" className="mobile-profile-button" onClick={openSettings} aria-label="Open account settings">
             {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : <span>{guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
           </button>
         </div>
@@ -1208,7 +1212,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Separator className="dropdown-separator" />
                   <DropdownMenu.Item
                     className="dropdown-item text-xs"
-                    onSelect={() => window.location.href = "/settings"}
+                    onSelect={openSettings}
                   >
                     <Settings size={14} />
                     <span>More model settings…</span>
@@ -1244,7 +1248,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             <button
               type="button"
               className="icon-button"
-              onClick={() => window.location.href = "/settings"}
+              onClick={openSettings}
               title="Settings"
               aria-label="Open settings"
             >
@@ -1277,7 +1281,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <DropdownMenu.Content align="end" sideOffset={6} className="dropdown-content">
                     <DropdownMenu.Item
                       className="dropdown-item"
-                      onSelect={() => window.location.href = "/settings"}
+                      onSelect={openSettings}
                     >
                       <Settings size={14} />
                       <span>Settings</span>
@@ -1302,7 +1306,13 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         </header>
 
         {/* Scrollable Center Canvas */}
-        <div className="main-scroll" key={activeChat?.id || "empty"}>
+        <div className="main-scroll-frame">
+        <div
+          className="main-scroll"
+          key={activeChat?.id || "empty"}
+          ref={scrollRef}
+          onScroll={handleScroll}
+        >
           {!activeChat || messages.length === 0 ? (
             /* Iconic Empty State: Centered Greeting & Central Floating Input */
             <div className="welcome-container">
@@ -1430,12 +1440,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             </div>
           ) : (
             /* Active Conversation View */
-            <div className="conversation-wrap" aria-live="polite">
+            <div className="conversation-wrap" aria-live="polite" ref={contentRef}>
               <AnimatePresence initial={false}>
                 {messages.map((message) => (
                   <motion.div
                     key={message.id}
-                    layout
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.16, ease: "easeOut" }}
@@ -1479,36 +1488,13 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                             message.id === animatedMessageId ? (
                               <TypewriterMarkdown
                                 content={message.content}
-                                isComplete={!isGenerating}
-                                onComplete={() => setAnimatedMessageId((id) => id === message.id ? null : id)}
+                                isStreaming={isGenerating}
+                                onComplete={() => setAnimatedMessageId((id) => (id === message.id ? null : id))}
                               />
                             ) : (
-                            <div className="markdown-body">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
-                                components={{
-                                  code({ className, children, ...props }) {
-                                    const match = /language-(\w+)/.exec(className || "");
-                                    const codeString = String(children).replace(/\n$/, "");
-                                    if (match || codeString.includes("\n")) {
-                                      return (
-                                        <CodeBlock language={match?.[1] || "code"}>
-                                          {codeString}
-                                        </CodeBlock>
-                                      );
-                                    }
-                                    return (
-                                      <code className={className} {...props}>
-                                        {children}
-                                      </code>
-                                    );
-                                  },
-                                }}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
+                              <div className="markdown-body">
+                                <MarkdownContent content={message.content} />
+                              </div>
                             )
                           ) : (
                             /* Thinking / Streaming pulse */
@@ -1563,9 +1549,15 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <div ref={bottomRef} />
             </div>
           )}
+        </div>
+        {hasMessages && showJumpToLatest && (
+          <button type="button" className="scroll-jump" onClick={jumpToLatest} aria-label="Jump to latest message">
+            <ArrowDown size={15} />
+            <span>Latest</span>
+          </button>
+        )}
         </div>
 
         {/* Sticky Bottom Composer (Active when messages exist) */}
