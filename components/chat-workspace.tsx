@@ -366,7 +366,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
             body: JSON.stringify({ chats: chats.slice(0, MAX_HISTORY).map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
           });
-          if (!response.ok) throw new Error("Chat history could not be synced to the cloud.");
+          if (!response.ok) { const result = await response.json().catch(() => null) as { error?: unknown } | null; throw new Error(typeof result?.error === "string" ? result.error : `Chat history sync failed (HTTP ${response.status}).`); }
         } catch (error) {
           console.error("[TIWAT] Cloud chat sync failed", error);
           toast.error("Cloud chat sync failed. Your local history is still available on this device.");
