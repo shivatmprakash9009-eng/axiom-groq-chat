@@ -377,7 +377,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   // Keep signed-in chat history synced to Supabase; guest history stays local.
   useEffect(() => {
-    if (guestMode || !firebaseUser || !hydrated || !cloudHistoryReady) return;
+    if (guestMode || !firebaseUser || !hydrated || !cloudHistoryReady || chats.length === 0) return;
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
