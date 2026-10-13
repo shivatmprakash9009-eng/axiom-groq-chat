@@ -323,7 +323,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       try {
         const token = await firebaseUser.getIdToken();
         const response = await fetch("/api/chats", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-        if (!response.ok) throw new Error("Cloud chat history could not be loaded.");
+        if (!response.ok) { const result = await response.json().catch(() => null) as { error?: unknown } | null; throw new Error(typeof result?.error === "string" ? result.error : `Cloud history load failed (HTTP ${response.status}).`); }
         const data = await response.json() as { chats?: Array<{ id: string; title: string; messages: Message[]; updated_at: string }> };
         if (cancelled) return;
         const remote = (data.chats || []).map((chat) => ({
@@ -341,7 +341,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
               body: JSON.stringify({ chats: local.map((chat) => ({ id: chat.id, title: chat.title, messages: chat.messages, updated_at: new Date(chat.updatedAt).toISOString() })) }),
             });
-            if (!upload.ok) throw new Error("Local chat history could not be migrated to the cloud.");
+            if (!upload.ok) { const result = await upload.json().catch(() => null) as { error?: unknown } | null; throw new Error(typeof result?.error === "string" ? result.error : `Local history migration failed (HTTP ${upload.status}).`); }
             if (!cancelled) setChats(local);
           }
         }
