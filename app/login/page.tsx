@@ -58,7 +58,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           {!isReset && <>
             <div className="auth-guest-separator"><span>OR</span></div>
             <Link className="auth-guest-button" href="/chat?guest=1">Continue as guest <span aria-hidden="true">↗</span></Link>
-            <p className="auth-guest-note">Guest chats are temporary and are not saved to your account.</p>
+            <p className="auth-guest-note">Guest chats stay in this browser and do not sync to your account.</p>
           </>}
           <p className="auth-terms">By continuing, you agree to use TIWAT responsibly. <Link href="/privacy">Privacy</Link></p>
         </div>
