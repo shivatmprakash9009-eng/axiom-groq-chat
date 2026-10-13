@@ -1,6 +1,6 @@
 "use client";
 
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "@firebase/auth";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
