@@ -16,9 +16,12 @@ const security = process.env.ARCJET_KEY
   : null;
 
 function getClientIdentifier(request: NextRequest): string {
+  // Prefer the platform-provided single IP header; x-forwarded-for may contain
+  // a client-supplied value when requests pass through untrusted proxies.
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() || "127.0.0.1";
-  return request.headers.get("x-real-ip") || "127.0.0.1";
+  return forwarded?.split(",")[0]?.trim() || "unknown-client";
 }
 
 export async function POST(request: NextRequest) {
