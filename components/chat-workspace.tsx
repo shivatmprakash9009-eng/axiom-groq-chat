@@ -63,10 +63,7 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Chat = { id: string; title: string; messages: Message[]; updatedAt: number };
 type Attachment = { name: string; content: string; size: number };
 
-const STORAGE_KEY = "tiwat.chats.v1"; // Legacy shared key; never load this into a signed-in account.
-const GUEST_STORAGE_KEY = "tiwat.chats.guest.v1";
 const userStorageKey = (userId: string) => "tiwat.chats.user." + userId + ".v1";
-const FALLBACK_KEYS = ["axiom.workspace.chats.v3", "axiom.groq-chat.v2"];
 const MAX_HISTORY = 100;
 /** Within this distance of the bottom, the view keeps following new text. */
 const NEAR_BOTTOM_PX = 24;
@@ -141,16 +138,10 @@ function titleFrom(text: string) {
   return clean.length > 40 ? `${clean.slice(0, 39).trimEnd()}…` : clean || "New chat";
 }
 
-function readHistory(storageKey = STORAGE_KEY, allowLegacyFallback = true): Chat[] {
+function readHistory(storageKey: string): Chat[] {
   if (typeof window === "undefined") return [];
   try {
-    let raw = localStorage.getItem(storageKey);
-    if (!raw && allowLegacyFallback) {
-      for (const k of FALLBACK_KEYS) {
-        raw = localStorage.getItem(k);
-        if (raw) break;
-      }
-    }
+    const raw = localStorage.getItem(storageKey);
     const value: unknown = JSON.parse(raw || "[]");
     if (!Array.isArray(value)) return [];
     return value
@@ -224,7 +215,7 @@ function groupChatsByDate(chats: Chat[]) {
   return Object.entries(groups).filter(([_, items]) => items.length > 0);
 }
 
-export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
+export function ChatWorkspace() {
   const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -288,8 +279,8 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   // Hydration & initial load
   useEffect(() => {
-    setChats(guestMode ? readHistory(GUEST_STORAGE_KEY, false) : []);
-    setHistoryOwner(guestMode ? "guest" : null);
+    setChats([]);
+    setHistoryOwner(null);
     setHydrated(true);
 
     useUIStore.getState().hydrateAppearance();
@@ -314,43 +305,33 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       // Ignore unavailable or malformed saved preferences.
     }
 
-    if (!guestMode) {
-      try {
-        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
-          // Do not carry history from one account into another session.
-          setCloudHistoryReady(false);
-          setHistoryOwner(null);
-          setChats([]);
-          setFirebaseUser(user);
-        });
-        return () => unsubscribe();
-      } catch {
-        // Firebase not fully initialized
-      }
-    }
-  }, [guestMode]);
-
-  // Persist histories in separate guest and per-account namespaces.
-  useEffect(() => {
-    if (!hydrated) return;
-    let key: string;
-    if (guestMode) {
-      if (historyOwner !== "guest") return;
-      key = GUEST_STORAGE_KEY;
-    } else {
-      if (!firebaseUser || historyOwner !== firebaseUser.uid || !cloudHistoryReady) return;
-      key = userStorageKey(firebaseUser.uid);
-    }
     try {
-      localStorage.setItem(key, JSON.stringify(chats.slice(0, MAX_HISTORY)));
+      const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+        // Do not carry history from one account into another session.
+        setCloudHistoryReady(false);
+        setHistoryOwner(null);
+        setChats([]);
+        setFirebaseUser(user);
+      });
+      return () => unsubscribe();
+    } catch {
+      // Firebase not fully initialized
+    }
+  }, []);
+
+  // Persist only the currently authenticated account's history.
+  useEffect(() => {
+    if (!hydrated || !firebaseUser || historyOwner !== firebaseUser.uid || !cloudHistoryReady) return;
+    try {
+      localStorage.setItem(userStorageKey(firebaseUser.uid), JSON.stringify(chats.slice(0, MAX_HISTORY)));
     } catch {
       // ignore unavailable storage
     }
-  }, [chats, cloudHistoryReady, firebaseUser, guestMode, historyOwner, hydrated]);
+  }, [chats, cloudHistoryReady, firebaseUser, historyOwner, hydrated]);
 
   // Load the signed-in user's history from the server.
   useEffect(() => {
-    if (guestMode || !hydrated || !firebaseUser) {
+    if (!hydrated || !firebaseUser) {
       setCloudHistoryReady(false);
       return;
     }
@@ -399,11 +380,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [firebaseUser, guestMode, hydrated]);
+  }, [firebaseUser, hydrated]);
 
-  // Keep signed-in chat history synced to Supabase; guest history stays local.
+  // Keep authenticated chat history synced to Supabase.
   useEffect(() => {
-    if (guestMode || !firebaseUser || !hydrated || !cloudHistoryReady || chats.length === 0) return;
+    if (!firebaseUser || !hydrated || !cloudHistoryReady || chats.length === 0) return;
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
@@ -421,7 +402,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       })();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [chats, cloudHistoryReady, firebaseUser, guestMode, hydrated]);
+  }, [chats, cloudHistoryReady, firebaseUser, hydrated]);
 
   // Stop any reply still in flight when leaving the workspace.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -570,18 +551,10 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
     setAnimatedMessageId(placeholderId);
 
     try {
-      let authHeader: Record<string, string> = {};
-      if (!guestMode) {
-        try {
-          const user = getFirebaseAuth().currentUser;
-          if (user) {
-            const token = await user.getIdToken();
-            authHeader = { Authorization: `Bearer ${token}` };
-          }
-        } catch {
-          // ignore
-        }
-      }
+      const user = getFirebaseAuth().currentUser;
+      if (!user) throw new Error("Your session has expired. Please sign in again.");
+      const token = await user.getIdToken();
+      const authHeader: Record<string, string> = { Authorization: `Bearer ${token}` };
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -604,7 +577,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
               return typeof preference?.language === "string" ? preference.language : "English";
             } catch { return "English"; }
           })(),
-          guestMode,
         }),
       });
 
@@ -944,7 +916,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
-    if (!guestMode && firebaseUser) {
+    if (firebaseUser) {
       void firebaseUser.getIdToken().then((token) => fetch("/api/chats", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -971,7 +943,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
   const clearHistory = () => {
     const ids = chats.map((chat) => chat.id);
     setChats([]);
-    if (!guestMode && firebaseUser) {
+    if (firebaseUser) {
       void firebaseUser.getIdToken().then(async (token) => {
         await Promise.all(ids.map((id) => fetch("/api/chats", {
           method: "DELETE",
@@ -981,7 +953,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
       }).catch((error) => console.error("[TIWAT] Cloud history clear failed", error));
     }
     void setActiveId(null);
-    try { localStorage.removeItem(guestMode ? GUEST_STORAGE_KEY : firebaseUser ? userStorageKey(firebaseUser.uid) : STORAGE_KEY); } catch { /* ignore */ }
+    try { if (firebaseUser) localStorage.removeItem(userStorageKey(firebaseUser.uid)); } catch { /* ignore */ }
     toast.success("Chat history cleared");
   };
 
@@ -1191,11 +1163,11 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         {/* User Account Footer */}
         <div className="sidebar-footer">
           <button type="button" className="user-avatar-circle" onClick={openSettings} aria-label="Open account settings" title="Account settings">
-            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
+            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
           </button>
           <div className="sidebar-footer-text">
-            <strong>{guestMode ? "Guest session" : firebaseUser?.displayName || firebaseUser?.email?.split("@")[0] || "My account"}</strong>
-            <span>{guestMode ? "Guest workspace" : firebaseUser?.email || currentModel.name}</span>
+            <strong>{firebaseUser?.displayName || firebaseUser?.email?.split("@")[0] || "My account"}</strong>
+            <span>{firebaseUser?.email || currentModel.name}</span>
           </div>
 
           <DropdownMenu.Root>
@@ -1238,29 +1210,17 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   <span>Export as JSON</span>
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="dropdown-separator" />
-                {guestMode ? (
-                  <DropdownMenu.Item
-                    className="dropdown-item"
-                    onSelect={() => {
+                <DropdownMenu.Item
+                  className="dropdown-item text-red-500"
+                  onSelect={() => {
+                    void signOut(getFirebaseAuth()).finally(() => {
                       window.location.href = "/login";
-                    }}
-                  >
-                    <LogIn size={15} />
-                    <span>Sign in to save chats</span>
-                  </DropdownMenu.Item>
-                ) : (
-                  <DropdownMenu.Item
-                    className="dropdown-item text-red-500"
-                    onSelect={() => {
-                      void signOut(getFirebaseAuth()).finally(() => {
-                        window.location.href = "/login";
-                      });
-                    }}
-                  >
-                    <LogOut size={15} />
-                    <span>Log out</span>
-                  </DropdownMenu.Item>
-                )}
+                    });
+                  }}
+                >
+                  <LogOut size={15} />
+                  <span>Log out</span>
+                </DropdownMenu.Item>
                 <DropdownMenu.Item className="dropdown-item text-red-500" onSelect={clearHistory}>
                   <Trash2 size={15} />
                   <span>Clear all chats</span>
@@ -1272,7 +1232,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
         <div className="mobile-drawer-bottom">
           <button type="button" className="mobile-chat-button" onClick={startNewChat}><PenLine size={18} /><span>Chat</span></button>
           <button type="button" className="mobile-profile-button" onClick={openSettings} aria-label="Open account settings">
-            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : <span>{guestMode ? "G" : (firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
+            {firebaseUser?.photoURL ? <Image src={firebaseUser.photoURL} alt="" width={48} height={48} unoptimized /> : <span>{(firebaseUser?.displayName || firebaseUser?.email || "T").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</span>}
           </button>
         </div>
       </aside>
@@ -1391,18 +1351,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
             </button>
 
             {/* Auth status button */}
-            {guestMode ? (
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = "/login";
-                }}
-                className="hidden sm:inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-[var(--text)] text-[var(--page)] hover:opacity-90 transition-opacity"
-              >
-                Sign in
-              </button>
-            ) : (
-              <DropdownMenu.Root>
+            <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button
                     type="button"
@@ -1436,7 +1385,6 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
-            )}
           </div>
         </header>
 
