@@ -49,7 +49,13 @@ export async function supabaseRest<T>(path: string, init: RequestInit = {}): Pro
     throw new SaaSError(diagnostic, response.status >= 500 ? 503 : 400);
   }
   if (response.status === 204) return undefined as T;
-  return await response.json() as T;
+  const responseText = await response.text();
+  if (!responseText.trim()) return undefined as T;
+  try {
+    return JSON.parse(responseText) as T;
+  } catch {
+    throw new SaaSError("SaaS storage returned an invalid response.", 503);
+  }
 }
 
 export async function getPlan(uid: string): Promise<PlanId> {
