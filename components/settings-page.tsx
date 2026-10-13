@@ -123,7 +123,7 @@ export function SettingsPage() {
           <h2>Account</h2>
           <div className="account-detail-card">
             <div className="account-account-identity">
-              <div className="account-detail-avatar">{user?.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : initials(user)}</div>
+              <div className="account-detail-avatar">{user?.photoURL ? <Image src={user.photoURL} alt="" width={48} height={48} unoptimized referrerPolicy="no-referrer" /> : initials(user)}</div>
               <div><strong>{user?.displayName || user?.email?.split("@")[0] || "Guest account"}</strong><small>{user?.email || "Not signed in"}</small></div>
             </div>
             <div className="account-detail-line"><span>Display name</span><strong>{user?.displayName || "Not set"}</strong></div>
