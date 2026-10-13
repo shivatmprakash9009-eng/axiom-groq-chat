@@ -6,7 +6,9 @@ import { BASE_SYSTEM_PROMPT, buildSystemPrompt, getConfiguredProviders } from ".
 test("buildSystemPrompt uses BASE_SYSTEM_PROMPT by default", () => {
   const prompt = buildSystemPrompt();
   assert.ok(prompt.startsWith("# IDENTITY\nYou are TIWAT"));
-  assert.strictEqual(prompt, BASE_SYSTEM_PROMPT);
+  assert.ok(prompt.startsWith(BASE_SYSTEM_PROMPT));
+  assert.match(prompt, /RESPONSE LANGUAGE PREFERENCE/);
+  assert.match(prompt, /saved language preference: English/);
 });
 
 test("buildSystemPrompt appends style guidelines", () => {
