@@ -17,7 +17,7 @@ export default function HomePage() {
       }
     >
       <ChatEntry>
-        <ChatWorkspace guestMode={false} />
+        <ChatWorkspace />
       </ChatEntry>
     </Suspense>
   );
