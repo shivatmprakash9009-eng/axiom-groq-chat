@@ -52,12 +52,13 @@ export async function getPlan(uid: string): Promise<PlanId> {
 export async function reserveUsage(uid: string, inputCharacters: number, idempotencyKey = randomUUID()) {
   const plan = await getPlan(uid);
   const limit = PLAN_LIMITS[plan].dailyMessages;
-  const result = await supabaseRest<Array<{ tiwat_reserve_daily_usage: { allowed: boolean; duplicate: boolean; used: number; limit: number; event_id?: string; reset_at?: string } }>>(
+  // PostgREST returns a scalar jsonb function result as the JSON object itself,
+  // not as a table row containing a function-named property.
+  const quota = await supabaseRest<{ allowed: boolean; duplicate: boolean; used: number; limit: number; event_id?: string; reset_at?: string }>(
     "rpc/tiwat_reserve_daily_usage",
     { method: "POST", body: JSON.stringify({ p_firebase_uid: uid, p_idempotency_key: idempotencyKey, p_input_characters: inputCharacters, p_daily_limit: limit }) },
   );
-  const quota = result[0]?.tiwat_reserve_daily_usage;
-  if (!quota) throw new SaaSError("Quota service returned an invalid response.", 503);
+  if (!quota || typeof quota.allowed !== "boolean") throw new SaaSError("Quota service returned an invalid response.", 503);
   return { ...quota, plan, idempotencyKey };
 }
 
