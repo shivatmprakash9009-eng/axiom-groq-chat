@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Billing webhook is not configured." }, { status: 503 });
   const raw = await request.text();
+  if (Number(request.headers.get("content-length") || 0) > 256_000) {
+    return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
+  }
   const signature = request.headers.get("stripe-signature") || "";
   if (!verifyStripeSignature(raw, signature, secret)) {
     return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
@@ -75,6 +78,15 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ received: true });
   } catch (error) {
+    // The event is claimed before processing for deduplication. If processing fails,
+    // remove that claim so Stripe's retry can safely attempt the event again.
+    await supabaseRest(
+      `tiwat_webhook_events?stripe_event_id=eq.${encodeURIComponent(event.id)}`,
+      { method: "DELETE" },
+    ).catch((cleanupError) => {
+      console.error("[TIWAT billing] Could not release failed webhook claim", event.id,
+        cleanupError instanceof Error ? cleanupError.message : "unknown");
+    });
     console.error("[TIWAT billing] Webhook processing failed", event.id, error instanceof Error ? error.message : "unknown");
     return NextResponse.json({ error: "Webhook processing failed; Stripe may retry." }, { status: 500 });
   }
