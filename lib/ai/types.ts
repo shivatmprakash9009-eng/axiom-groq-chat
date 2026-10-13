@@ -13,6 +13,7 @@ export interface ChatOptions {
   stream?: boolean;
   style?: ChatStyle;
   customSystemPrompt?: string;
+  language?: string;
   temperature?: number;
   correlationId?: string;
   signal?: AbortSignal;
