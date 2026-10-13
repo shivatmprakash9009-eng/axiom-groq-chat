@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const conversationMessageSchema = z.object({
-  role: z.enum(["user", "assistant", "system"]),
+  role: z.enum(["user", "assistant"], { message: "Client messages cannot set the system role." }),
   content: z.string().trim().min(1, "Message content cannot be empty.").max(50_000, "Message is too long."),
 });
 
