@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/code-block";
+import { ResponseChart, type ResponseChartData } from "@/components/response-chart";
 
 /** Words appear this often while the reveal is caught up with the stream. */
 const REVEAL_INTERVAL_MS = 24;
@@ -25,9 +26,17 @@ function textFromNode(node: ReactNode): string {
 
 const markdownComponents: Components = {
   code({ className, children }) {
-    const match = /language-(\w+)/.exec(className || "");
-    const codeString = textFromNode(children).replace(/\n$/, "");
-    if (match || codeString.includes("\n")) {
+    const match = /language-(\\w+)/.exec(className || "");
+    const codeString = textFromNode(children).replace(/\\n$/, "");
+    if (match?.[1]?.toLowerCase() === "chart") {
+      try {
+        const data = JSON.parse(codeString) as ResponseChartData;
+        return <ResponseChart chart={data} />;
+      } catch {
+        return <CodeBlock language="json">{codeString}</CodeBlock>;
+      }
+    }
+    if (match || codeString.includes("\\n")) {
       return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
     }
     return <code className={className}>{children}</code>;
