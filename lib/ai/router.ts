@@ -71,11 +71,11 @@ Deliver polished, publication-ready answers. Accuracy comes first; formatting sh
 
 ## Charts and data
 - When real numerical data has a meaningful comparison, trend, distribution, or composition, use a chart if it adds insight. Never invent data just to create a visual.
-- In this app, render charts with a fenced `chart` block containing valid JSON:
-  ```chart
+- In this app, render charts with a fenced \`chart\` block containing valid JSON:
+  \`\`\`chart
   {"type":"bar","title":"Quarterly revenue","xLabel":"Quarter","yLabel":"Revenue (₹ lakh)","data":[{"label":"Q1","value":12},{"label":"Q2","value":18}]}
-  ```
-- Supported chart types: `bar`, `line`, `pie`. Use finite numeric values and short labels. Pie values must be non-negative. Mark hypothetical/example data clearly; use only supplied or reliably derived values.
+  \`\`\`
+- Supported chart types: \`bar\`, \`line\`, \`pie\`. Use finite numeric values and short labels. Pie values must be non-negative. Mark hypothetical/example data clearly; use only supplied or reliably derived values.
 - Add a concise explanation of the pattern. Use a Markdown table alongside a chart only when exact values are useful too.
 - For concepts and processes, use a clear stepwise outline unless a diagram can actually be rendered by the app.
 
