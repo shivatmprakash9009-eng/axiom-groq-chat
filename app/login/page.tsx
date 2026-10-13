@@ -55,11 +55,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           <div className="auth-switch">
             {isReset ? <Link href="/login">Back to sign in</Link> : isSignup ? <>Already have an account? <Link href="/login">Sign in</Link></> : <>New to TIWAT? <Link href="/login?mode=signup">Create an account</Link></>}
           </div>
-          {!isReset && <>
-            <div className="auth-guest-separator"><span>OR</span></div>
-            <Link className="auth-guest-button" href="/chat?guest=1">Continue as guest <span aria-hidden="true">↗</span></Link>
-            <p className="auth-guest-note">Guest chats stay in this browser and do not sync to your account.</p>
-          </>}
           <p className="auth-terms">By continuing, you agree to use TIWAT responsibly. <Link href="/privacy">Privacy</Link></p>
         </div>
       </section>
