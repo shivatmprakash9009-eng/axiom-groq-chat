@@ -16,6 +16,24 @@ const remarkPlugins = [remarkGfm];
 const highlightPlugins = [rehypeHighlight];
 const noPlugins: never[] = [];
 
+function isResponseChartData(value: unknown): value is ResponseChartData {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ResponseChartData>;
+  return (
+    (candidate.type === "bar" || candidate.type === "line" || candidate.type === "pie") &&
+    Array.isArray(candidate.data) &&
+    candidate.data.every(
+      (item) =>
+        !!item &&
+        typeof item === "object" &&
+        typeof item.label === "string" &&
+        typeof item.value === "number" &&
+        Number.isFinite(item.value) &&
+        (candidate.type !== "pie" || item.value >= 0),
+    )
+  );
+}
+
 /** Syntax highlighting turns code into nested elements, so flatten back to plain text. */
 function textFromNode(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -30,11 +48,14 @@ const markdownComponents: Components = {
     const codeString = textFromNode(children).replace(/\\n$/, "");
     if (match?.[1]?.toLowerCase() === "chart") {
       try {
-        const data = JSON.parse(codeString) as ResponseChartData;
-        return <ResponseChart chart={data} />;
+        const parsed: unknown = JSON.parse(codeString);
+        if (isResponseChartData(parsed)) {
+          return <ResponseChart chart={parsed} />;
+        }
       } catch {
-        return <CodeBlock language="json">{codeString}</CodeBlock>;
+        // Keep malformed model output visible instead of breaking the entire response.
       }
+      return <CodeBlock language="json">{codeString}</CodeBlock>;
     }
     if (match || codeString.includes("\\n")) {
       return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
