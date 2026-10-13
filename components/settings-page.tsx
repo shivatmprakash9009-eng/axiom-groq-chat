@@ -5,7 +5,7 @@ import { ArrowLeft, Check, ChevronRight, Cpu, FileText, Globe2, HelpCircle, Lock
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { type ChatStyle, useUIStore } from "@/stores/ui-store";
 
@@ -20,6 +20,103 @@ const languages = [
   { value: "English", label: "English" },
   { value: "Hindi", label: "हिन्दी (Hindi)" },
   { value: "Hinglish", label: "Hinglish" },
+  { value: "Bengali", label: "বাংলা (Bengali)" },
+  { value: "Urdu", label: "اردو (Urdu)" },
+  { value: "Tamil", label: "தமிழ் (Tamil)" },
+  { value: "Telugu", label: "తెలుగు (Telugu)" },
+  { value: "Marathi", label: "मराठी (Marathi)" },
+  { value: "Gujarati", label: "ગુજરાતી (Gujarati)" },
+  { value: "Kannada", label: "ಕನ್ನಡ (Kannada)" },
+  { value: "Malayalam", label: "മലയാളം (Malayalam)" },
+  { value: "Punjabi", label: "ਪੰਜਾਬੀ (Punjabi)" },
+  { value: "Odia", label: "ଓଡ଼ିଆ (Odia)" },
+  { value: "Assamese", label: "অসমীয়া (Assamese)" },
+  { value: "Maithili", label: "मैथिली (Maithili)" },
+  { value: "Sanskrit", label: "संस्कृतम् (Sanskrit)" },
+  { value: "Nepali", label: "नेपाली (Nepali)" },
+  { value: "Sindhi", label: "سنڌي (Sindhi)" },
+  { value: "Kashmiri", label: "कॉशुर (Kashmiri)" },
+  { value: "Konkani", label: "कोंकणी (Konkani)" },
+  { value: "Manipuri", label: "মৈতৈলোন্ (Manipuri)" },
+  { value: "Bodo", label: "बड़ो (Bodo)" },
+  { value: "Dogri", label: "डोगरी (Dogri)" },
+  { value: "Santali", label: "ᱥᱟᱱᱛᱟᱲᱤ (Santali)" },
+  { value: "Spanish", label: "Español (Spanish)" },
+  { value: "French", label: "Français (French)" },
+  { value: "German", label: "Deutsch (German)" },
+  { value: "Portuguese", label: "Português (Portuguese)" },
+  { value: "Italian", label: "Italiano (Italian)" },
+  { value: "Dutch", label: "Nederlands (Dutch)" },
+  { value: "Afrikaans", label: "Afrikaans" },
+  { value: "Swedish", label: "Svenska (Swedish)" },
+  { value: "Norwegian", label: "Norsk (Norwegian)" },
+  { value: "Danish", label: "Dansk (Danish)" },
+  { value: "Finnish", label: "Suomi (Finnish)" },
+  { value: "Irish", label: "Gaeilge (Irish)" },
+  { value: "Welsh", label: "Cymraeg (Welsh)" },
+  { value: "Polish", label: "Polski (Polish)" },
+  { value: "Czech", label: "Čeština (Czech)" },
+  { value: "Slovak", label: "Slovenčina (Slovak)" },
+  { value: "Croatian", label: "Hrvatski (Croatian)" },
+  { value: "Serbian", label: "Српски (Serbian)" },
+  { value: "Bulgarian", label: "Български (Bulgarian)" },
+  { value: "Romanian", label: "Română (Romanian)" },
+  { value: "Hungarian", label: "Magyar (Hungarian)" },
+  { value: "Greek", label: "Ελληνικά (Greek)" },
+  { value: "Russian", label: "Русский (Russian)" },
+  { value: "Ukrainian", label: "Українська (Ukrainian)" },
+  { value: "Turkish", label: "Türkçe (Turkish)" },
+  { value: "Arabic", label: "العربية (Arabic)" },
+  { value: "Hebrew", label: "עברית (Hebrew)" },
+  { value: "Persian", label: "فارسی (Persian)" },
+  { value: "Pashto", label: "پښتو (Pashto)" },
+  { value: "Armenian", label: "Հայերեն (Armenian)" },
+  { value: "Azerbaijani", label: "Azərbaycan dili (Azerbaijani)" },
+  { value: "Kazakh", label: "Қазақша (Kazakh)" },
+  { value: "Uzbek", label: "Oʻzbekcha (Uzbek)" },
+  { value: "Mongolian", label: "Монгол (Mongolian)" },
+  { value: "Chinese (Simplified)", label: "简体中文 (Chinese)" },
+  { value: "Chinese (Traditional)", label: "繁體中文 (Chinese)" },
+  { value: "Japanese", label: "日本語 (Japanese)" },
+  { value: "Korean", label: "한국어 (Korean)" },
+  { value: "Thai", label: "ไทย (Thai)" },
+  { value: "Vietnamese", label: "Tiếng Việt (Vietnamese)" },
+  { value: "Indonesian", label: "Bahasa Indonesia" },
+  { value: "Malay", label: "Bahasa Melayu (Malay)" },
+  { value: "Filipino", label: "Filipino" },
+  { value: "Burmese", label: "မြန်မာ (Burmese)" },
+  { value: "Khmer", label: "ខ្មែរ (Khmer)" },
+  { value: "Lao", label: "ລາວ (Lao)" },
+  { value: "Javanese", label: "Basa Jawa (Javanese)" },
+  { value: "Swahili", label: "Kiswahili (Swahili)" },
+  { value: "Amharic", label: "አማርኛ (Amharic)" },
+  { value: "Somali", label: "Soomaali (Somali)" },
+  { value: "Hausa", label: "Hausa" },
+  { value: "Yoruba", label: "Yorùbá (Yoruba)" },
+  { value: "Igbo", label: "Igbo" },
+  { value: "Zulu", label: "isiZulu (Zulu)" },
+  { value: "Xhosa", label: "isiXhosa (Xhosa)" },
+  { value: "Shona", label: "chiShona (Shona)" },
+  { value: "Kinyarwanda", label: "Ikinyarwanda" },
+  { value: "Maori", label: "Māori" },
+  { value: "Samoan", label: "Gagana Samoa (Samoan)" },
+  { value: "Esperanto", label: "Esperanto" },
+  { value: "Latin", label: "Latina (Latin)" },
+  { value: "Luxembourgish", label: "Lëtzebuergesch" },
+  { value: "Catalan", label: "Català (Catalan)" },
+  { value: "Basque", label: "Euskara (Basque)" },
+  { value: "Galician", label: "Galego (Galician)" },
+  { value: "Yiddish", label: "ייִדיש (Yiddish)" },
+  { value: "Tibetan", label: "བོད་སྐད (Tibetan)" },
+  { value: "Uyghur", label: "ئۇيغۇرچە (Uyghur)" },
+  { value: "Tajik", label: "Тоҷикӣ (Tajik)" },
+  { value: "Dari", label: "دری (Dari)" },
+  { value: "Bhojpuri", label: "भोजपुरी (Bhojpuri)" },
+  { value: "Chhattisgarhi", label: "छत्तीसगढ़ी (Chhattisgarhi)" },
+  { value: "Rajasthani", label: "राजस्थानी (Rajasthani)" },
+  { value: "Haryanvi", label: "हरियाणवी (Haryanvi)" },
+  { value: "Tulu", label: "ತುಳು (Tulu)" },
+  { value: "Meitei", label: "মেইতেই (Meitei)" },
 ];
 
 function initials(user: User | null) {
@@ -33,6 +130,8 @@ export function SettingsPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [language, setLanguage] = useState("English");
+  const [languageSearch, setLanguageSearch] = useState("");
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const settings = useUIStore((state) => state.settings);
   const updateSettings = useUIStore((state) => state.updateSettings);
@@ -40,6 +139,10 @@ export function SettingsPage() {
   const setAppearance = useUIStore((state) => state.setAppearance);
   const hydrateAppearance = useUIStore((state) => state.hydrateAppearance);
   const [appearanceReady, setAppearanceReady] = useState(false);
+  const filteredLanguages = useMemo(() => {
+    const query = languageSearch.trim().toLocaleLowerCase();
+    return languages.filter((item) => !query || item.value.toLocaleLowerCase().includes(query) || item.label.toLocaleLowerCase().includes(query)).slice(0, 100);
+  }, [languageSearch]);
 
   useEffect(() => {
     hydrateAppearance();
@@ -157,8 +260,19 @@ export function SettingsPage() {
           <h2>Language</h2>
           <div className="account-detail-card">
             <strong>Response language preference</strong>
-            <div className="account-style-grid">{languages.map((item) => <button type="button" key={item.value} className={`account-style-option ${language === item.value ? "selected" : ""}`} onClick={() => setLanguage(item.value)}><Globe2 size={17} /><span>{item.label}</span>{language === item.value && <Check size={15} />}</button>)}</div>
-            <p className="account-setting-note">Save your preference. You can also request a language directly in any chat.</p>
+            <div className="language-picker">
+              <label className="account-field-label" htmlFor="language-search">Search and select a language</label>
+              <div className="language-picker-control">
+                <Globe2 size={18} aria-hidden="true" />
+                <input id="language-search" type="search" value={languageSearch} onChange={(event) => { setLanguageSearch(event.target.value); setLanguagePickerOpen(true); }} onFocus={() => setLanguagePickerOpen(true)} onKeyDown={(event) => { if (event.key === "Escape") setLanguagePickerOpen(false); if (event.key === "Enter" && filteredLanguages.length > 0) { event.preventDefault(); setLanguage(filteredLanguages[0].value); setLanguageSearch(""); setLanguagePickerOpen(false); } }} placeholder="Type a language name…" autoComplete="off" aria-expanded={languagePickerOpen} aria-controls="language-options" />
+                <button type="button" className="language-picker-toggle" onClick={() => setLanguagePickerOpen((open) => !open)} aria-label={languagePickerOpen ? "Close language list" : "Open language list"}><ChevronRight size={17} className={languagePickerOpen ? "language-picker-chevron open" : "language-picker-chevron"} /></button>
+              </div>
+              <div className="language-picker-current">Selected: <strong>{languages.find((item) => item.value === language)?.label || language}</strong></div>
+              {languagePickerOpen && <div id="language-options" className="language-picker-options" role="listbox" aria-label="Available languages">
+                {filteredLanguages.length ? filteredLanguages.map((item) => <button type="button" role="option" aria-selected={language === item.value} key={item.value} className={"language-picker-option " + (language === item.value ? "selected" : "")} onClick={() => { setLanguage(item.value); setLanguageSearch(""); setLanguagePickerOpen(false); }}><span>{item.label}</span>{language === item.value && <Check size={16} />}</button>) : <p className="language-picker-empty">No matching language. Try another spelling.</p>}
+              </div>}
+            </div>
+            <p className="account-setting-note">Everyday replies use your selected language. Complex, difficult, and technical topics stay in English.</p>
             <button type="button" className="account-primary-button" onClick={savePreferences}>{saved ? "Saved" : "Save language"}</button>
           </div>
         </section>
