@@ -39,6 +39,11 @@ export async function PUT(request: NextRequest) {
     if (!payload || !Array.isArray(payload.chats) || payload.chats.length > 100) {
       return NextResponse.json({ error: "Invalid chat history payload." }, { status: 400 });
     }
+    await supabaseRest<unknown>("tiwat_accounts?on_conflict=firebase_uid", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([{ firebase_uid: user.uid, email: user.email || null }]),
+    });
     const chats = payload.chats.map((value) => {
       const item = value as Partial<ChatRow>;
       if (typeof item.id !== "string" || item.id.length < 1 || item.id.length > 100 ||
