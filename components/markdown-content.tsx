@@ -44,8 +44,8 @@ function textFromNode(node: ReactNode): string {
 
 const markdownComponents: Components = {
   code({ className, children }) {
-    const match = /language-(\\w+)/.exec(className || "");
-    const codeString = textFromNode(children).replace(/\\n$/, "");
+    const match = /language-(\w+)/.exec(className || "");
+    const codeString = textFromNode(children).replace(/\n$/, "");
     if (match?.[1]?.toLowerCase() === "chart") {
       try {
         const parsed: unknown = JSON.parse(codeString);
@@ -57,7 +57,7 @@ const markdownComponents: Components = {
       }
       return <CodeBlock language="json">{codeString}</CodeBlock>;
     }
-    if (match || codeString.includes("\\n")) {
+    if (match || codeString.includes("\n")) {
       return <CodeBlock language={match?.[1] || "code"}>{codeString}</CodeBlock>;
     }
     return <code className={className}>{children}</code>;
