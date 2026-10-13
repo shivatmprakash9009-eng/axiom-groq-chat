@@ -4,6 +4,8 @@ import { AllProvidersFailedError, NoProviderConfiguredError } from "@/lib/ai/err
 import { createAIResponse, createAIStream } from "@/lib/ai/router";
 import { chatRequestSchema } from "@/lib/ai/schema";
 import { globalRateLimiter } from "@/lib/security/rate-limiter";
+import { randomUUID } from "node:crypto";
+import { finishUsage, reserveUsage, SaaSError } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,6 +72,8 @@ export async function POST(request: NextRequest) {
     upstreamAbortController.signal,
     AbortSignal.timeout(55_000),
   ]);
+  let authenticatedUid: string | null = null;
+  let usageReservation: Awaited<ReturnType<typeof reserveUsage>> | null = null;
 
   try {
     // 1. Arcjet rate limiting if configured
@@ -207,6 +211,29 @@ export async function POST(request: NextRequest) {
           { status: 401, headers: { "x-request-id": correlationId } }
         );
       }
+      authenticatedUid = verifiedUser.users[0].localId;
+    }
+
+    // Durable quota enforcement applies to signed-in accounts. Guest sessions remain
+    // protected by the IP limiter until a separate anonymous quota policy is defined.
+    if (authenticatedUid) {
+      const inputCharacters = messages.reduce((total, message) => total + message.content.length, 0);
+      if (inputCharacters > 150_000) {
+        return NextResponse.json({ error: "This conversation is too large. Start a new chat or shorten the context." }, {
+          status: 413, headers: { "x-request-id": correlationId },
+        });
+      }
+      const requestedKey = request.headers.get("idempotency-key")?.trim();
+      const idempotencyKey = requestedKey && requestedKey.length >= 8 && requestedKey.length <= 200
+        ? requestedKey
+        : randomUUID();
+      usageReservation = await reserveUsage(authenticatedUid, inputCharacters, idempotencyKey);
+      if (!usageReservation.allowed) {
+        return NextResponse.json({
+          error: "Daily message limit reached for your current plan.",
+          quota: { used: usageReservation.used, limit: usageReservation.limit, resetAt: usageReservation.reset_at },
+        }, { status: 429, headers: { "x-request-id": correlationId, "Cache-Control": "no-store" } });
+      }
     }
 
     // 4. Streaming execution if requested
@@ -248,6 +275,14 @@ export async function POST(request: NextRequest) {
                 // The client may have closed the stream between the abort check and enqueue.
               }
             }
+          } finally {
+            if (usageReservation?.event_id) {
+              await finishUsage(usageReservation.event_id, succeeded ? "completed" : "failed", {
+                provider: streamProvider, model: streamModel, promptTokens, completionTokens, latencyMs: Date.now() - startedAt,
+              }).catch((usageError) => {
+                console.error(`[TIWAT ${correlationId}] Usage reconciliation failed:`, usageError instanceof Error ? usageError.message : "unknown");
+              });
+            }
           }
         },
         cancel() {
@@ -266,6 +301,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Non-streaming execution
+    const startedAt = Date.now();
     const result = await createAIResponse(messages, {
       style,
       customSystemPrompt,
@@ -274,6 +310,14 @@ export async function POST(request: NextRequest) {
       correlationId,
       signal: upstreamSignal,
     });
+    if (usageReservation?.event_id) {
+      await finishUsage(usageReservation.event_id, "completed", {
+        provider: result.provider, model: result.model,
+        promptTokens: result.usage?.promptTokens, completionTokens: result.usage?.completionTokens,
+        latencyMs: result.latencyMs ?? Date.now() - startedAt,
+      });
+      usageReservation = null;
+    }
 
     return NextResponse.json(
       {
@@ -291,6 +335,15 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
+    if (usageReservation?.event_id) {
+      await finishUsage(usageReservation.event_id, "failed").catch((usageError) => {
+        console.error(`[TIWAT ${correlationId}] Usage reconciliation failed:`, usageError instanceof Error ? usageError.message : "unknown");
+      });
+      usageReservation = null;
+    }
+    if (error instanceof SaaSError) {
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: { "x-request-id": correlationId } });
+    }
     if (error instanceof NoProviderConfiguredError) {
       return NextResponse.json(
         {
