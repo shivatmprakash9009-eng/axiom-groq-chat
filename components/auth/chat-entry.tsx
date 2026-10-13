@@ -5,16 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
-export function ChatEntry({ children, guestMode = false }: { children: React.ReactNode; guestMode?: boolean }) {
+export function ChatEntry({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [allowed, setAllowed] = useState(guestMode);
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    if (guestMode) {
-      setAllowed(true);
-      return;
-    }
-
     let unsubscribe: (() => void) | undefined;
     try {
       unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
@@ -25,7 +20,7 @@ export function ChatEntry({ children, guestMode = false }: { children: React.Rea
       router.replace("/login");
     }
     return () => unsubscribe?.();
-  }, [guestMode, router]);
+  }, [router]);
 
   if (!allowed) {
     return <main className="auth-loading"><span className="auth-mark">T</span><p>Preparing your workspace…</p></main>;
