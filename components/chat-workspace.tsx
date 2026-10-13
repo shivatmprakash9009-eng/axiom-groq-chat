@@ -1,7 +1,7 @@
 "use client";
 
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { onAuthStateChanged, signOut, type User } from "@firebase/auth";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
