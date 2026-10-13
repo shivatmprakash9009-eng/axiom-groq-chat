@@ -288,7 +288,7 @@ export function ChatWorkspace({ guestMode = false }: { guestMode?: boolean }) {
 
   // Hydration & initial load
   useEffect(() => {
-    setChats(guestMode ? readHistory(GUEST_STORAGE_KEY, true) : []);
+    setChats(guestMode ? readHistory(GUEST_STORAGE_KEY, false) : []);
     setHistoryOwner(guestMode ? "guest" : null);
     setHydrated(true);
 
