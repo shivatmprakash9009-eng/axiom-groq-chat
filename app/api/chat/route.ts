@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-request-id") ||
     (typeof globalThis.crypto?.randomUUID === "function" ? crypto.randomUUID() : String(Date.now()));
   const clientIp = getClientIdentifier(request);
+  const upstreamAbortController = new AbortController();
+  const upstreamSignal = AbortSignal.any([
+    request.signal,
+    upstreamAbortController.signal,
+    AbortSignal.timeout(55_000),
+  ]);
 
   try {
     // 1. Arcjet rate limiting if configured
@@ -57,9 +63,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Request parsing & schema validation
-    const payload: unknown = await request.json().catch(() => null);
-    if (!payload) {
+    // 3. Bound request-body parsing before JSON decoding.
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 1_000_000) {
+      return NextResponse.json(
+        { error: "Request body is too large." },
+        { status: 413, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    const rawPayload = await request.text().catch(() => "");
+    if (!rawPayload || rawPayload.length > 1_000_000) {
+      return NextResponse.json(
+        { error: rawPayload ? "Request body is too large." : "Invalid JSON request payload." },
+        { status: rawPayload ? 413 : 400, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(rawPayload);
+    } catch {
       return NextResponse.json(
         { error: "Invalid JSON request payload." },
         { status: 400, headers: { "x-request-id": correlationId } }
@@ -99,6 +123,7 @@ export async function POST(request: NextRequest) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
           cache: "no-store",
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]),
         }
       ).catch(() => null);
 
@@ -126,6 +151,7 @@ export async function POST(request: NextRequest) {
         customSystemPrompt,
         temperature,
         correlationId,
+        signal: upstreamSignal,
       });
 
       const readableStream = new ReadableStream({
@@ -135,13 +161,30 @@ export async function POST(request: NextRequest) {
               const data = JSON.stringify(chunk);
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            controller.close();
+            if (!request.signal.aborted && !upstreamAbortController.signal.aborted) {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            }
           } catch (streamError) {
-            const errorMsg = streamError instanceof Error ? streamError.message : "Stream generation failed";
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`));
-            controller.close();
+            const clientDisconnected = request.signal.aborted || upstreamAbortController.signal.aborted;
+            if (!clientDisconnected) {
+              const reason = streamError instanceof Error ? streamError.message : "Unknown stream error";
+              console.error(`[TIWAT ${correlationId}] Stream generation failed: ${reason}`);
+              try {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ error: "TIWAT could not complete that response. Please try again." })}\n\n`
+                  )
+                );
+                controller.close();
+              } catch {
+                // The client may have closed the stream between the abort check and enqueue.
+              }
+            }
           }
+        },
+        cancel() {
+          upstreamAbortController.abort();
         },
       });
 
@@ -161,6 +204,7 @@ export async function POST(request: NextRequest) {
       customSystemPrompt,
       temperature,
       correlationId,
+      signal: upstreamSignal,
     });
 
     return NextResponse.json(
