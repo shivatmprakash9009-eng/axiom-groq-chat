@@ -184,7 +184,6 @@ export function SettingsPage() {
 
         <section id="terms" className="account-detail-section"><h2>Terms of service</h2><div className="account-detail-card"><p>Use TIWAT lawfully and responsibly. AI output may be incorrect; verify important decisions independently.</p><Link href="/terms" className="account-inline-link">Read terms of service <ChevronRight size={15} /></Link></div></section>
         <section id="privacy-policy" className="account-detail-section"><h2>Privacy policy</h2><div className="account-detail-card"><p>Review how account authentication, chat requests, and local conversation history work.</p><Link href="/privacy" className="account-inline-link">Read privacy policy <ChevronRight size={15} /></Link></div></section>
-        <section id="license" className="account-detail-section"><h2>License</h2><div className="account-detail-card"><strong>MIT License</strong><p>This project is available under the MIT License. See the complete license and copyright notice in the repository.</p><a className="account-inline-link" href="https://github.com/shivatmprakash9009-eng/axiom-groq-chat/blob/main/LICENSE" target="_blank" rel="noreferrer">View full license <ChevronRight size={15} /></a></div></section>
 
         <footer className="account-settings-footer"><span>TIWAT · Account settings</span><Link href="/chat">← Back to chat</Link></footer>
       </div>
