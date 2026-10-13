@@ -1,5 +1,5 @@
-import { createHash, createHmac, timingSafeEqual, randomUUID } from "node:crypto";
-import { PLAN_LIMITS, resolvePlan, type PlanId } from "./plans";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { PLAN_LIMITS, type PlanId, resolvePlan } from "./plans";
 
 const supabaseUrl = () => process.env.SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -49,15 +49,16 @@ export async function getPlan(uid: string): Promise<PlanId> {
   return resolvePlan(rows[0]?.plan);
 }
 
-export async function reserveUsage(uid: string, inputCharacters: number, idempotencyKey = randomUUID()) {
+export async function reserveUsage(uid: string, inputCharacters: number, idempotencyKey: string = randomUUID()) {
   const plan = await getPlan(uid);
   const limit = PLAN_LIMITS[plan].dailyMessages;
-  const result = await supabaseRest<Array<{ tiwat_reserve_daily_usage: { allowed: boolean; duplicate: boolean; used: number; limit: number; event_id?: string; reset_at?: string } }>>(
+  // PostgREST returns a scalar jsonb function result as the JSON object itself,
+  // not as a table row containing a function-named property.
+  const quota = await supabaseRest<{ allowed: boolean; duplicate: boolean; used: number; limit: number; event_id?: string; reset_at?: string }>(
     "rpc/tiwat_reserve_daily_usage",
     { method: "POST", body: JSON.stringify({ p_firebase_uid: uid, p_idempotency_key: idempotencyKey, p_input_characters: inputCharacters, p_daily_limit: limit }) },
   );
-  const quota = result[0]?.tiwat_reserve_daily_usage;
-  if (!quota) throw new SaaSError("Quota service returned an invalid response.", 503);
+  if (!quota || typeof quota.allowed !== "boolean") throw new SaaSError("Quota service returned an invalid response.", 503);
   return { ...quota, plan, idempotencyKey };
 }
 

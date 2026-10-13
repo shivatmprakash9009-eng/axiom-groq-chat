@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { SaaSError, supabaseRest, verifyFirebaseToken } from "@/lib/saas/server";
 
 export const runtime = "nodejs";
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     params.set("metadata[billing_interval]", body.interval);
     params.set("subscription_data[metadata][firebase_uid]", user.uid);
     params.set("subscription_data[metadata][plan]", body.plan);
+    params.set("subscription_data[metadata][billing_interval]", body.interval);
     if (existing[0]?.stripe_customer_id) params.set("customer", existing[0].stripe_customer_id);
     else if (user.email) params.set("customer_email", user.email);
 
