@@ -276,11 +276,11 @@ export async function POST(request: NextRequest) {
               if (chunk.usage?.promptTokens !== undefined) promptTokens = chunk.usage.promptTokens;
               if (chunk.usage?.completionTokens !== undefined) completionTokens = chunk.usage.completionTokens;
               const data = JSON.stringify(chunk);
-              controller.enqueue(encoder.encode(`data: ${data}\\n\\n`));
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
             succeeded = true;
             if (!request.signal.aborted && !upstreamAbortController.signal.aborted) {
-              controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
             }
           } catch (streamError) {
@@ -339,6 +339,12 @@ export async function POST(request: NextRequest) {
         provider: result.provider, model: result.model,
         promptTokens: result.usage?.promptTokens, completionTokens: result.usage?.completionTokens,
         latencyMs: result.latencyMs ?? Date.now() - startedAt,
+      }).catch((usageError) => {
+        // A usage bookkeeping failure must not discard a successful AI response.
+        console.error(
+          `[TIWAT ${correlationId}] Usage reconciliation failed:`,
+          usageError instanceof Error ? usageError.message : "unknown"
+        );
       });
       usageReservation = null;
     }
