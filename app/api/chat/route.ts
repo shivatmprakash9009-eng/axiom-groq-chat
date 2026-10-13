@@ -24,6 +24,41 @@ function getClientIdentifier(request: NextRequest): string {
   return forwarded?.split(",")[0]?.trim() || "unknown-client";
 }
 
+async function readBoundedRequestBody(
+  request: NextRequest,
+  maxBytes: number
+): Promise<{ text: string; tooLarge: boolean }> {
+  if (!request.body) return { text: "", tooLarge: false };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { text: "", tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { text: new TextDecoder("utf-8", { fatal: true }).decode(body), tooLarge: false };
+}
+
 export async function POST(request: NextRequest) {
   const correlationId =
     request.headers.get("x-request-id") ||
@@ -75,17 +110,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawPayload = await request.text().catch(() => "");
-    if (!rawPayload || Buffer.byteLength(rawPayload, "utf8") > 1_000_000) {
+    let body: { text: string; tooLarge: boolean };
+    try {
+      body = await readBoundedRequestBody(request, 1_000_000);
+    } catch {
       return NextResponse.json(
-        { error: rawPayload ? "Request body is too large." : "Invalid JSON request payload." },
-        { status: rawPayload ? 413 : 400, headers: { "x-request-id": correlationId } }
+        { error: "Invalid request body encoding." },
+        { status: 400, headers: { "x-request-id": correlationId } }
+      );
+    }
+
+    if (body.tooLarge) {
+      return NextResponse.json(
+        { error: "Request body is too large." },
+        { status: 413, headers: { "x-request-id": correlationId } }
+      );
+    }
+    if (!body.text) {
+      return NextResponse.json(
+        { error: "Invalid JSON request payload." },
+        { status: 400, headers: { "x-request-id": correlationId } }
       );
     }
 
     let payload: unknown;
     try {
-      payload = JSON.parse(rawPayload);
+      payload = JSON.parse(body.text);
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON request payload." },
