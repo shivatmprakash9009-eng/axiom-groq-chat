@@ -1711,14 +1711,17 @@ export function ChatWorkspace() {
                   </button>
                   <button
                     type="button"
-                    className="icon-button"
-                        onClick={() => {
-                          toast.info("Live web search is not connected. No web results will be fetched.");
-                        }}
-                        title="Live web search is not connected"
-                        aria-label="Live web search is not connected"
+                    className={isWebSearchEnabled ? "icon-button text-[var(--accent)] bg-[var(--surface-soft)]" : "icon-button"}
+                    onClick={() => {
+                      setIsWebSearchEnabled((enabled) => !enabled);
+                      toast.info(isWebSearchEnabled ? "Live research turned off" : "Live research enabled for the next message");
+                    }}
+                    title={isWebSearchEnabled ? "Live research on — click to turn off" : "Search the web — click to turn on"}
+                    aria-label={isWebSearchEnabled ? "Turn live web research off" : "Turn live web research on"}
+                    aria-pressed={isWebSearchEnabled}
                   >
                     <Globe size={17} />
+                    {isWebSearchEnabled && <span className="ml-1 text-[11px]">Research</span>}
                   </button>
                   <button
                     type="button"
