@@ -45,18 +45,39 @@ function textFromNode(node: ReactNode): string {
 
 function renderMathText(value: string): ReactNode {
   const trimmed = value.trim();
-  const bracketed = /^\[([\s\S]+)\]$/.exec(trimmed);
-  const display = bracketed?.[1] ?? /^\$\$([\s\S]+)\$\$/.exec(trimmed)?.[1];
-  if (display && /\\(frac|text|sqrt|cdot|times|approx|alpha|beta|pi)|[_^]\{/.test(display)) {
-    return <MathExpression source={display} display />;
+
+  // Models often return display math without delimiters. Recognize common standalone equations too.
+  const bracketed = /^\\\[([\s\S]+)\\\]$/.exec(trimmed)
+    ?? /^\$\$([\s\S]+)\$\$$/.exec(trimmed)
+    ?? /^\[([\s\S]+)\]$/.exec(trimmed);
+  if (bracketed?.[1] && /\\(?:frac|times|text|rm|mathrm|sqrt|cdot|alpha|beta|pi)|[_^]\{/.test(bracketed[1])) {
+    return <MathExpression source={bracketed[1]} display />;
   }
-  const pieces = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g);
-  if (pieces.length === 1) return value;
-  return <>{pieces.map((piece) => piece.startsWith("$") && piece.endsWith("$")
-    ? <MathExpression key={`display-${piece}`} source={piece.slice(2, -2)} display />
-    : piece.startsWith("$") && piece.endsWith("$")
-      ? <MathExpression key={`inline-${piece}`} source={piece.slice(1, -1)} />
-      : piece)}</>;
+
+  const parenInline = /^\\\(([\s\S]+)\\\)$/.exec(trimmed);
+  if (parenInline) return <MathExpression source={parenInline[1]} />;
+
+  const pieces = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\([\s\S]+?\\\))/g);
+  if (pieces.length > 1) {
+    return <>{pieces.map((piece) => {
+      if (piece.startsWith("$$") && piece.endsWith("$$")) {
+        return <MathExpression key={\`display-\${piece}\`} source={piece.slice(2, -2)} display />;
+      }
+      if (piece.startsWith("$") && piece.endsWith("$")) {
+        return <MathExpression key={\`inline-\${piece}\`} source={piece.slice(1, -1)} />;
+      }
+      if (piece.startsWith("\\(") && piece.endsWith("\\)")) {
+        return <MathExpression key={\`inline-tex-\${piece}\`} source={piece.slice(2, -2)} />;
+      }
+      return <span key={\`text-\${piece}\`}>{piece}</span>;
+    })}</>;
+  }
+
+  // Recover bare equations that the model failed to wrap in $...$ or \[...\].
+  const isBareEquation = /^[A-Za-z]\s*(?:;\s*)?=\s*(?:;\s*)?[\s\S]*\\(?:frac|times|text|rm|mathrm|sqrt|cdot|alpha|beta|pi)/.test(trimmed);
+  if (isBareEquation) return <MathExpression source={trimmed} display />;
+
+  return value;
 }
 
 const markdownComponents: Components = {
