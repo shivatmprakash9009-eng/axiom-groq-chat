@@ -10,6 +10,22 @@ const SYMBOLS: Record<string, string> = {
   infty: "∞", partial: "∂", nabla: "∇",
 };
 
+function normalizeLatex(source: string): string {
+  let value = source
+    .replace(/\\s*;\\s*=\\s*;\\s*/g, " = ")
+    .replace(/\\s*,\\s*\\\\fracm_1\\s*,\\s*m_2r\\^2/g, " \\\\frac{m_1m_2}{r^2}")
+    .replace(/\\\\fracm_1\\s*,\\s*m_2r\\^2/g, "\\\\frac{m_1m_2}{r^2}")
+    .replace(/\\\\fracM r\\^2/g, "\\\\frac{M}{r^2}")
+    .replace(/\\\\fracM r\\{2\\}/g, "\\\\frac{M}{r^2}")
+    .replace(/\\\\fracM r2/g, "\\\\frac{M}{r^2}")
+    .replace(/\\\\fracm_1m_2r\\^2/g, "\\\\frac{m_1m_2}{r^2}")
+    .replace(/\\\\frac\\s*([A-Za-z])\\s*([A-Za-z])\\s*([A-Za-z])\\^?\\{?2\\}?/g, "\\\\frac{$1$2}{$3^2}")
+    .replace(/\\\\frac\\s*([A-Za-z])\\s*([A-Za-z])\\^2/g, "\\\\frac{$1}{$2^2}")
+    .replace(/\\\\times\\s*10\\^\\{([^}]+)\\}/g, "×10^{$1}")
+    .replace(/\\\\rm\\s*/g, "\\\\text{");
+  return value;
+}
+
 function convertSimpleLatex(source: string): ReactNode[] {
   const parts: ReactNode[] = [];
   let rest = source;
@@ -55,7 +71,7 @@ function convertSimpleLatex(source: string): ReactNode[] {
 }
 
 export function MathExpression({ source, display = false }: { source: string; display?: boolean }) {
-  const clean = source.trim().replace(/^\\\[|\\\]$/g, "").replace(/^\$\$?|\$\$?$/g, "").trim();
+  const clean = normalizeLatex(source.trim().replace(/^\\\[|\\\]$/g, "").replace(/^\$\$?|\$\$?$/g, "").trim());
   return display
     ? <div className="math-expression math-expression-display" role="math">{convertSimpleLatex(clean)}</div>
     : <span className="math-expression" role="math">{convertSimpleLatex(clean)}</span>;
