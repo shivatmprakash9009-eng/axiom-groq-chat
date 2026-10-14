@@ -228,6 +228,8 @@ export function ChatWorkspace() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [thumbsState, setThumbsState] = useState<Record<string, "up" | "down">>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState("Thinking...");
   const [animatedMessageId, setAnimatedMessageId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
@@ -542,11 +544,13 @@ export function ChatWorkspace() {
   const executeGeneration = async (
     chatId: string,
     placeholderId: string,
-    historyToSend: ConversationMessage[]
+    historyToSend: ConversationMessage[],
+    webSearchEnabled: boolean
   ) => {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsGenerating(true);
+    setGenerationStatus(webSearchEnabled ? "Preparing live research..." : "Thinking...");
     setAnimatedMessageId(placeholderId);
 
     try {
@@ -565,7 +569,8 @@ export function ChatWorkspace() {
         signal: controller.signal,
         body: JSON.stringify({
           messages: historyToSend,
-          stream: settings.streamResponses,
+          stream: settings.streamResponses || webSearchEnabled,
+          webSearch: webSearchEnabled,
           style: detailedStyleEnabled ? "detailed" : settings.chatStyle,
           customSystemPrompt: settings.customSystemPrompt || undefined,
           temperature: settings.temperature,
@@ -606,9 +611,9 @@ export function ChatWorkspace() {
               const dataStr = trimmed.slice(6).trim();
               if (dataStr === "[DONE]") continue;
 
-              let chunk: { error?: string; text?: string };
+              let chunk: { error?: string; text?: string; status?: string };
               try {
-                chunk = JSON.parse(dataStr) as { error?: string; text?: string };
+                chunk = JSON.parse(dataStr) as { error?: string; text?: string; status?: string };
               } catch {
                 continue;
               }
@@ -616,6 +621,7 @@ export function ChatWorkspace() {
               if (chunk.error) {
                 throw new Error(chunk.error);
               }
+              if (typeof chunk.status === "string") setGenerationStatus(chunk.status);
 
               if (typeof chunk.text === "string" && chunk.text.length > 0) {
                 accumulated += chunk.text;
@@ -698,6 +704,7 @@ export function ChatWorkspace() {
       toast.error("Could not complete response", { description: errorMsg });
     } finally {
       setIsGenerating(false);
+      setGenerationStatus("Thinking...");
       abortRef.current = null;
     }
   };
@@ -754,7 +761,7 @@ export function ChatWorkspace() {
       { role: "user" as const, content: apiPrompt },
     ].slice(-32);
 
-    void executeGeneration(chatId, placeholderId, historyToSend);
+    void executeGeneration(chatId, placeholderId, historyToSend, isWebSearchEnabled);
   };
 
   const handleFormSubmit = form.handleSubmit(onSend);
@@ -797,7 +804,7 @@ export function ChatWorkspace() {
       content: m.content,
     }));
 
-    void executeGeneration(activeChat.id, placeholderId, historyToSend);
+    void executeGeneration(activeChat.id, placeholderId, historyToSend, isWebSearchEnabled);
   };
 
   const handleEditMessage = (userContent: string) => {
@@ -1460,14 +1467,17 @@ export function ChatWorkspace() {
                     </button>
                     <button
                       type="button"
-                      className="icon-button"
-                        onClick={() => {
-                          toast.info("Live web search is not connected. No web results will be fetched.");
-                        }}
-                        title="Live web search is not connected"
-                        aria-label="Live web search is not connected"
+                      className={isWebSearchEnabled ? "icon-button text-[var(--accent)] bg-[var(--surface-soft)]" : "icon-button"}
+                      onClick={() => {
+                        setIsWebSearchEnabled((enabled) => !enabled);
+                        toast.info(isWebSearchEnabled ? "Live research turned off" : "Live research enabled for the next message");
+                      }}
+                      title={isWebSearchEnabled ? "Live research on — click to turn off" : "Search the web — click to turn on"}
+                      aria-label={isWebSearchEnabled ? "Turn live web research off" : "Turn live web research on"}
+                      aria-pressed={isWebSearchEnabled}
                     >
                       <Globe size={17} />
+                      {isWebSearchEnabled && <span className="ml-1 text-[11px]">Research</span>}
                     </button>
                     <button
                       type="button"
@@ -1583,6 +1593,7 @@ export function ChatWorkspace() {
                               <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse" />
                               <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse delay-150" />
                               <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)] animate-pulse delay-300" />
+                              <span className="ml-2 text-sm text-[var(--text-secondary)]">{generationStatus}</span>
                             </div>
                           )}
 
@@ -1700,14 +1711,17 @@ export function ChatWorkspace() {
                   </button>
                   <button
                     type="button"
-                    className="icon-button"
-                        onClick={() => {
-                          toast.info("Live web search is not connected. No web results will be fetched.");
-                        }}
-                        title="Live web search is not connected"
-                        aria-label="Live web search is not connected"
+                    className={isWebSearchEnabled ? "icon-button text-[var(--accent)] bg-[var(--surface-soft)]" : "icon-button"}
+                    onClick={() => {
+                      setIsWebSearchEnabled((enabled) => !enabled);
+                      toast.info(isWebSearchEnabled ? "Live research turned off" : "Live research enabled for the next message");
+                    }}
+                    title={isWebSearchEnabled ? "Live research on — click to turn off" : "Search the web — click to turn on"}
+                    aria-label={isWebSearchEnabled ? "Turn live web research off" : "Turn live web research on"}
+                    aria-pressed={isWebSearchEnabled}
                   >
                     <Globe size={17} />
+                    {isWebSearchEnabled && <span className="ml-1 text-[11px]">Research</span>}
                   </button>
                   <button
                     type="button"
