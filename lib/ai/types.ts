@@ -17,6 +17,7 @@ export interface ChatOptions {
   temperature?: number;
   correlationId?: string;
   signal?: AbortSignal;
+  researchContext?: string;
 }
 
 export interface TokenUsage {
