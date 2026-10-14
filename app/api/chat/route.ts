@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { AllProvidersFailedError, NoProviderConfiguredError } from "@/lib/ai/errors";
 import { createAIResponse, createAIStream } from "@/lib/ai/router";
 import { chatRequestSchema } from "@/lib/ai/schema";
+import { searchWeb } from "@/lib/ai/web-search";
 import { PLAN_LIMITS } from "@/lib/saas/plans";
 import { finishUsage, reserveUsage, SaaSError } from "@/lib/saas/server";
 import { globalRateLimiter } from "@/lib/security/rate-limiter";
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages, stream, style, customSystemPrompt, language, temperature } = parsed.data;
+    const { messages, stream, webSearch, style, customSystemPrompt, language, temperature } = parsed.data;
 
     // Every model request requires a valid registered Firebase session.
     {
@@ -250,15 +251,6 @@ export async function POST(request: NextRequest) {
     // 4. Streaming execution if requested
     if (stream) {
       const encoder = new TextEncoder();
-      const streamGenerator = createAIStream(messages, {
-        style,
-        customSystemPrompt,
-        language,
-        temperature,
-        correlationId,
-        signal: upstreamSignal,
-      });
-
       const readableStream = new ReadableStream({
         async start(controller) {
           let succeeded = false;
@@ -267,7 +259,32 @@ export async function POST(request: NextRequest) {
           let promptTokens: number | undefined;
           let completionTokens: number | undefined;
           const startedAt = Date.now();
+          let researchPhase = false;
           try {
+            let researchContext: string | undefined;
+            if (webSearch) {
+              researchPhase = true;
+              const sendStatus = (status: string) => {
+                controller.enqueue(encoder.encode("data: " + JSON.stringify({ status }) + "\n\n"));
+              };
+              sendStatus("Searching the web...");
+              const query = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+              const research = await searchWeb(query, upstreamSignal);
+              researchContext = research.context;
+              sendStatus("Reviewing " + research.results.length + " source" + (research.results.length === 1 ? "" : "s") + "...");
+              sendStatus("Thinking through the evidence...");
+              researchPhase = false;
+            }
+
+            const streamGenerator = createAIStream(messages, {
+              style,
+              customSystemPrompt,
+              language,
+              temperature,
+              correlationId,
+              signal: upstreamSignal,
+              researchContext,
+            });
             for await (const chunk of streamGenerator) {
               if (chunk.provider) streamProvider = chunk.provider;
               if (chunk.model) streamModel = chunk.model;
@@ -289,7 +306,7 @@ export async function POST(request: NextRequest) {
               try {
                 controller.enqueue(
                   encoder.encode(
-                    `data: ${JSON.stringify({ error: "TIWAT could not complete that response. Please try again." })}\n\n`
+                    `data: ${JSON.stringify({ error: researchPhase ? reason : "TIWAT could not complete that response. Please try again." })}\n\n`
                   )
                 );
                 controller.close();
