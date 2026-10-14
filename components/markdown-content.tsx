@@ -5,8 +5,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/code-block";
-import { ResponseChart, type ResponseChartData } from "@/components/response-chart";
 import { MathExpression } from "@/components/math-expression";
+import { ResponseChart, type ResponseChartData } from "@/components/response-chart";
 
 /** Words appear this often while the reveal is caught up with the stream. */
 const REVEAL_INTERVAL_MS = 24;
