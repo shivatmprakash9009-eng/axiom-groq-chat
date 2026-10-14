@@ -804,7 +804,7 @@ export function ChatWorkspace() {
       content: m.content,
     }));
 
-    void executeGeneration(activeChat.id, placeholderId, historyToSend);
+    void executeGeneration(activeChat.id, placeholderId, historyToSend, isWebSearchEnabled);
   };
 
   const handleEditMessage = (userContent: string) => {
