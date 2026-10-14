@@ -341,6 +341,12 @@ export async function POST(request: NextRequest) {
 
     // 5. Non-streaming execution
     const startedAt = Date.now();
+    let researchContext: string | undefined;
+    if (webSearch) {
+      const query = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+      const research = await searchWeb(query, upstreamSignal);
+      researchContext = research.context;
+    }
     const result = await createAIResponse(messages, {
       style,
       customSystemPrompt,
@@ -348,6 +354,7 @@ export async function POST(request: NextRequest) {
       temperature,
       correlationId,
       signal: upstreamSignal,
+      researchContext,
     });
     if (usageReservation?.event_id) {
       await finishUsage(usageReservation.event_id, "completed", {
