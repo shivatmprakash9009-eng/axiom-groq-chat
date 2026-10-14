@@ -13,11 +13,11 @@ const SYMBOLS: Record<string, string> = {
 function normalizeLatex(source: string): string {
   return source
     .replace(/\s*;\s*=\s*;\s*/g, " = ")
-    .replace(/,\s*\\fracm_1\s*,\s*m_2r\^2/g, " \\frac{m_1m_2}{r^2}")
-    .replace(/\\fracm_1\s*,\s*m_2r\^2/g, "\\frac{m_1m_2}{r^2}")
-    .replace(/\\fracMr\^2/g, "\\frac{M}{r^2}")
-    .replace(/\\fracm_1m_2r\^2/g, "\\frac{m_1m_2}{r^2}")
-    .replace(/\\frac([A-Za-z])r\^2/g, "\\frac{$1}{r^2}")
+    .replace(/;\s*(?=\\frac)/g, " ")
+    .replace(/\\frac\s*m?_?1\s*[,;]\s*m?_?2\s*r\s*\^?\s*\{?2\}?/gi, "\\frac{m_1m_2}{r^2}")
+    .replace(/\\frac\s*m?_?1\s*m?_?2\s*r\s*\^?\s*\{?2\}?/gi, "\\frac{m_1m_2}{r^2}")
+    .replace(/\\frac\s*M\s*r\s*\^?\s*\{?2\}?/g, "\\frac{M}{r^2}")
+    .replace(/\\frac\s*([A-Za-z])\s*r\s*\^?\s*\{?2\}?/g, "\\frac{$1}{r^2}")
     .replace(/\\times\s*10\^\{([^}]+)\}/g, "×10^{$1}")
     .replace(/\\rm\s*/g, "\\text{");
 }
