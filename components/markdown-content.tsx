@@ -61,15 +61,15 @@ function renderMathText(value: string): ReactNode {
   if (pieces.length > 1) {
     return <>{pieces.map((piece) => {
       if (piece.startsWith("$$") && piece.endsWith("$$")) {
-        return <MathExpression key={\`display-\${piece}\`} source={piece.slice(2, -2)} display />;
+        return <MathExpression key={"display-" + piece} source={piece.slice(2, -2)} display />;
       }
       if (piece.startsWith("$") && piece.endsWith("$")) {
-        return <MathExpression key={\`inline-\${piece}\`} source={piece.slice(1, -1)} />;
+        return <MathExpression key={"inline-" + piece} source={piece.slice(1, -1)} />;
       }
       if (piece.startsWith("\\(") && piece.endsWith("\\)")) {
-        return <MathExpression key={\`inline-tex-\${piece}\`} source={piece.slice(2, -2)} />;
+        return <MathExpression key={"inline-tex-" + piece} source={piece.slice(2, -2)} />;
       }
-      return <span key={\`text-\${piece}\`}>{piece}</span>;
+      return <span key={"text-" + piece}>{piece}</span>;
     })}</>;
   }
 
