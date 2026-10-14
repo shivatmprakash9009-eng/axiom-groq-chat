@@ -1999,3 +1999,12 @@ textarea:focus-visible,
 .language-picker-option:last-child { border-bottom: 0; }
 .language-picker-option:hover, .language-picker-option.selected { background: #33263f; color: #d1b5ff; }
 .language-picker-empty { margin: 0; padding: 14px; color: #aaa; font-size: 13px; }
+
+
+/* Lightweight math display for common model-emitted LaTeX expressions */
+.math-expression { font-family: "Times New Roman", "STIX Two Math", serif; font-size: 1.08em; white-space: normal; }
+.math-expression-display { display: flex; justify-content: center; align-items: center; gap: 2px; width: 100%; margin: 14px 0; padding: 12px 8px; overflow-x: auto; font-size: clamp(1.05rem, 3.8vw, 1.35rem); }
+.math-expression sup, .math-expression sub { line-height: 0; font-size: .72em; }
+.math-fraction { display: inline-flex; flex-direction: column; align-items: stretch; vertical-align: middle; margin: 0 .15em; text-align: center; line-height: 1.2; font-size: .92em; }
+.math-fraction > span:first-child { padding: 0 .18em .12em; border-bottom: 1px solid currentColor; }
+.math-fraction > span:last-child { padding: .12em .18em 0; }

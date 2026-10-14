@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/code-block";
+import { MathExpression } from "@/components/math-expression";
 import { ResponseChart, type ResponseChartData } from "@/components/response-chart";
 
 /** Words appear this often while the reveal is caught up with the stream. */
@@ -42,7 +43,27 @@ function textFromNode(node: ReactNode): string {
   return "";
 }
 
+function renderMathText(value: string): ReactNode {
+  const trimmed = value.trim();
+  const bracketed = /^\[([\s\S]+)\]$/.exec(trimmed);
+  const display = bracketed?.[1] ?? /^\$\$([\s\S]+)\$\$/.exec(trimmed)?.[1];
+  if (display && /\\(frac|text|sqrt|cdot|times|approx|alpha|beta|pi)|[_^]\{/.test(display)) {
+    return <MathExpression source={display} display />;
+  }
+  const pieces = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g);
+  if (pieces.length === 1) return value;
+  return <>{pieces.map((piece, index) => piece.startsWith("$") && piece.endsWith("$")
+    ? <MathExpression key={index} source={piece.slice(2, -2)} display />
+    : piece.startsWith("$") && piece.endsWith("$")
+      ? <MathExpression key={index} source={piece.slice(1, -1)} />
+      : piece)}</>;
+}
+
 const markdownComponents: Components = {
+  p({ children }) {
+    const rendered = renderMathText(textFromNode(children));
+    return typeof rendered === "string" ? <p>{children}</p> : <p>{rendered}</p>;
+  },
   code({ className, children }) {
     const match = /language-(\w+)/.exec(className || "");
     const codeString = textFromNode(children).replace(/\n$/, "");
