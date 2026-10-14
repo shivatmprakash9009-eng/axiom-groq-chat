@@ -9,6 +9,7 @@ export const chatRequestSchema = z
   .object({
     messages: z.array(conversationMessageSchema).min(1, "At least one message is required.").max(50, "Conversation exceeds maximum history depth."),
     stream: z.boolean().optional().default(false),
+    webSearch: z.boolean().optional().default(false),
     style: z.enum(["default", "concise", "detailed", "code"]).optional(),
     customSystemPrompt: z.string().max(2000, "Custom instructions cannot exceed 2000 characters.").optional(),
     language: z.string().trim().min(2).max(80).optional().default("English"),
