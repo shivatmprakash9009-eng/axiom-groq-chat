@@ -52,10 +52,10 @@ function renderMathText(value: string): ReactNode {
   }
   const pieces = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g);
   if (pieces.length === 1) return value;
-  return <>{pieces.map((piece, index) => piece.startsWith("$") && piece.endsWith("$")
-    ? <MathExpression key={index} source={piece.slice(2, -2)} display />
+  return <>{pieces.map((piece) => piece.startsWith("$") && piece.endsWith("$")
+    ? <MathExpression key={`display-${piece}`} source={piece.slice(2, -2)} display />
     : piece.startsWith("$") && piece.endsWith("$")
-      ? <MathExpression key={index} source={piece.slice(1, -1)} />
+      ? <MathExpression key={`inline-${piece}`} source={piece.slice(1, -1)} />
       : piece)}</>;
 }
 
