@@ -1090,8 +1090,6 @@ export function ChatWorkspace() {
           <button type="button" className="mobile-drawer-nav-item" onClick={startNewChat}><PenLine size={21} /><span>New chat</span></button>
           <button type="button" className="mobile-drawer-nav-item" onClick={() => { setMobileSearchOpen(true); window.setTimeout(() => document.getElementById("sidebar-search")?.focus(), 50); }}><Search size={21} /><span>Search conversations</span></button>
           <button type="button" className="mobile-drawer-nav-item" onClick={() => { setShortcutsModalOpen(true); setMobileSidebarOpen(false); }}><Command size={21} /><span>Keyboard shortcuts</span></button>
-          <Link href="/settings" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><Settings size={21} /><span>Settings</span></Link>
-          <Link href="/privacy" className="mobile-drawer-nav-item" onClick={() => setMobileSidebarOpen(false)}><ShieldCheck size={21} /><span>Privacy & security</span></Link>
         </div>
         <div className="mobile-recent-heading">Recents</div>
         {/* Date-Grouped History Section */}
