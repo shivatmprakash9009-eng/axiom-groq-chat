@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { SaaSError, supabaseRest, verifyFirebaseToken } from "@/lib/saas/server";
+import { readBoundedTextBody } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +36,19 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await identity(request);
-    const payload = await request.json().catch(() => null) as { chats?: unknown } | null;
+    const boundedBody = await readBoundedTextBody(request, 5 * 1024 * 1024).catch(() => null);
+    if (!boundedBody) {
+      return NextResponse.json({ error: "Invalid chat history encoding." }, { status: 400 });
+    }
+    if (boundedBody.tooLarge) {
+      return NextResponse.json({ error: "Chat history payload is too large." }, { status: 413 });
+    }
+    let payload: { chats?: unknown } | null = null;
+    try {
+      payload = JSON.parse(boundedBody.text) as { chats?: unknown };
+    } catch {
+      // Invalid JSON is handled by the same validation response as other malformed payloads.
+    }
     if (!payload || !Array.isArray(payload.chats) || payload.chats.length > 100) {
       return NextResponse.json({ error: "Invalid chat history payload." }, { status: 400 });
     }
@@ -96,7 +109,19 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const user = await identity(request);
-    const payload = await request.json().catch(() => null) as { id?: unknown } | null;
+    const boundedBody = await readBoundedTextBody(request, 16 * 1024).catch(() => null);
+    if (!boundedBody) {
+      return NextResponse.json({ error: "Invalid chat deletion payload encoding." }, { status: 400 });
+    }
+    if (boundedBody.tooLarge) {
+      return NextResponse.json({ error: "Chat deletion payload is too large." }, { status: 413 });
+    }
+    let payload: { id?: unknown } | null = null;
+    try {
+      payload = JSON.parse(boundedBody.text) as { id?: unknown };
+    } catch {
+      // Invalid JSON is rejected by the ID validation below.
+    }
     if (typeof payload?.id !== "string" || !payload.id || payload.id.length > 100) {
       return NextResponse.json({ error: "A valid chat ID is required." }, { status: 400 });
     }

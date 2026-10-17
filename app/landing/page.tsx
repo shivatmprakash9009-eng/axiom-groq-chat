@@ -4,7 +4,7 @@ import Link from "next/link";
 const capabilities = [
   { icon: Sparkles, title: "Think with clarity", detail: "Turn scattered thoughts into useful direction." },
   { icon: Zap, title: "Move with momentum", detail: "Plan, write, build, and solve in one focused space." },
-  { icon: LockKeyhole, title: "Your space, your choice", detail: "Sign in for saved history or start a temporary guest session." },
+  { icon: LockKeyhole, title: "Your space, your choice", detail: "Sign in to keep your conversation history connected to your account." },
 ];
 
 export default function LandingPage() {
@@ -20,9 +20,9 @@ export default function LandingPage() {
         <p className="landing-subtitle">A focused AI workspace to explore ideas, solve problems, and turn your next move into real progress.</p>
         <div className="landing-cta-row">
           <Link href="/login?mode=signup" className="landing-primary">Create your account <ArrowRight size={17} /></Link>
-          <Link href="/chat?guest=1" className="landing-secondary">Try as guest <span aria-hidden="true">↗</span></Link>
+          <Link href="/login" className="landing-secondary">Sign in <span aria-hidden="true">↗</span></Link>
         </div>
-        <p className="landing-microcopy"><Check size={13} /> Start in seconds <span>·</span> Guest chats are temporary</p>
+        <p className="landing-microcopy"><Check size={13} /> Start in seconds <span>·</span> Your history stays connected to your account</p>
         <div className="landing-product-preview" aria-label="TIWAT workspace preview">
           <div className="preview-window">
             <div className="preview-top"><div className="preview-window-dots"><i /><i /><i /></div><span>TIWAT WORKSPACE</span><span className="preview-live"><i /> READY TO THINK</span></div>
