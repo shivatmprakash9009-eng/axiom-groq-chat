@@ -923,14 +923,26 @@ export function ChatWorkspace() {
   const deleteChat = (id: string) => {
     setChats((current) => current.filter((c) => c.id !== id));
     if (firebaseUser) {
-      void firebaseUser.getIdToken().then((token) => fetch("/api/chats", {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      })).catch((error) => console.error("[TIWAT] Cloud chat deletion failed", error));
+      void (async () => {
+        try {
+          const token = await firebaseUser.getIdToken();
+          const response = await fetch("/api/chats", {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+          if (!response.ok) {
+            const result = await response.json().catch(() => null) as { error?: unknown } | null;
+            throw new Error(typeof result?.error === "string" ? result.error : `Cloud chat deletion failed (HTTP ${response.status}).`);
+          }
+        } catch (error) {
+          console.error("[TIWAT] Cloud chat deletion failed", error);
+          toast.error("Cloud chat deletion failed. The conversation may reappear after refresh.");
+        }
+      })();
     }
     if (activeId === id) void setActiveId(null);
-    toast.success("Chat deleted");
+    toast.success("Chat removed from this device");
   };
 
   const startRename = (chat: Chat) => {
@@ -949,18 +961,28 @@ export function ChatWorkspace() {
   const clearHistory = () => {
     const ids = chats.map((chat) => chat.id);
     setChats([]);
-    if (firebaseUser) {
-      void firebaseUser.getIdToken().then(async (token) => {
-        await Promise.all(ids.map((id) => fetch("/api/chats", {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        })));
-      }).catch((error) => console.error("[TIWAT] Cloud history clear failed", error));
+    if (firebaseUser && ids.length) {
+      void (async () => {
+        try {
+          const token = await firebaseUser.getIdToken();
+          const responses = await Promise.all(ids.map((id) => fetch("/api/chats", {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          })));
+          const failed = responses.filter((response) => !response.ok);
+          if (failed.length) {
+            toast.error(`Could not delete ${failed.length} cloud conversation(s). They may reappear after refresh.`);
+          }
+        } catch (error) {
+          console.error("[TIWAT] Cloud history clear failed", error);
+          toast.error("Cloud history could not be cleared. Some conversations may reappear after refresh.");
+        }
+      })();
     }
     void setActiveId(null);
     try { if (firebaseUser) localStorage.removeItem(userStorageKey(firebaseUser.uid)); } catch { /* ignore */ }
-    toast.success("Chat history cleared");
+    toast.success("Chat history cleared on this device");
   };
 
   const openChat = (id: string) => {

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseRest, verifyStripeSignature } from "@/lib/saas/server";
+import { readBoundedTextBody } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -12,9 +13,16 @@ type StripeEvent = {
 export async function POST(request: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Billing webhook is not configured." }, { status: 503 });
-  const raw = await request.text();
-  if (Number(request.headers.get("content-length") || 0) > 256_000) {
+  const boundedBody = await readBoundedTextBody(request, 256_000).catch(() => null);
+  if (!boundedBody) {
+    return NextResponse.json({ error: "Invalid webhook payload encoding." }, { status: 400 });
+  }
+  if (boundedBody.tooLarge) {
     return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
+  }
+  const raw = boundedBody.text;
+  if (!raw) {
+    return NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 });
   }
   const signature = request.headers.get("stripe-signature") || "";
   if (!verifyStripeSignature(raw, signature, secret)) {

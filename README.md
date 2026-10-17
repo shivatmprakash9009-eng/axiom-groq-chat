@@ -86,7 +86,7 @@ TIWAT is an independent project. It is not an official product of Google, Groq, 
 - Give temporary in-UI thumbs-up/thumbs-down feedback.
 - Use keyboard shortcuts for common tasks.
 
-Conversation history currently supports up to 100 stored conversations per browser profile. It is saved in the browser’s local storage and is not an account-synced archive.
+Authenticated conversation history supports up to 100 stored conversations in the workspace. The browser keeps a local cache, and signed-in history is synchronized through the server-side chat-history API. Cross-device sync depends on a correctly configured Supabase backend.
 
 ### Accounts and installation
 
@@ -94,7 +94,7 @@ Conversation history currently supports up to 100 stored conversations per brows
 - Google sign-in.
 - Password-reset email flow.
 - Firebase local session persistence.
-- Guest entry for trying the workspace without a signed-in account.
+- Authentication-gated workspace entry; a valid Firebase session is required for AI requests and cloud chat-history access.
 - Responsive layout for desktop and mobile browsers.
 - Progressive Web App (PWA) manifest and install prompt support where the browser supports installation.
 - Light and dark appearance modes.
@@ -112,13 +112,14 @@ Conversation history currently supports up to 100 stored conversations per brows
 
 The following details are important when evaluating or deploying the project:
 
-- **No cloud conversation sync:** chat history lives in the current browser’s local storage. Signing in on a different device does not transfer it.
-- **Guest history is browser-local too:** guest chats are not associated with a user account, but the current workspace uses browser local storage for conversation history in both modes. Clear chat history and/or browser site data on shared devices.
-- **No built-in live web search:** the search control explains that live search is not connected. The server does not call a search engine or return web results.
-- **No multimodal file parsing:** attachments are read as text. Images, PDFs, and binary documents are not parsed by this attachment workflow.
-- **Response modes are style presets:** Balanced, Detailed, Code, and Concise control response style; they do not select a particular third-party model. The provider and model depend on server configuration and routing.
-- **No tool execution engine:** the system prompt can instruct the model to use available tools honestly, but the current chat route does not itself provide arbitrary code execution, web browsing, or external action tools.
-- **Fallback rate limiter is in-memory:** it is useful as a baseline but is not a distributed, durable quota across serverless instances. Configure a suitable external rate limiter for production traffic.
+- **Cloud history requires configuration:** signed-in history is stored through the server-side Supabase API, while a browser-local cache supports the workspace. Verify the deployed schema, service-role credentials, and sync behavior before relying on cross-device recovery.
+- **Live web research requires a key:** the research toggle calls LangSearch through the server. Set `LANGSEARCH_API_KEY` in the deployment environment; having the UI control present does not prove the external service is available.
+- **Attachments are text-only:** the current workflow reads supported text/code files. It does not implement native image understanding or a PDF/document extraction pipeline.
+- **Math rendering is a limited custom renderer:** common symbols and simple expressions are supported; the component is not a complete LaTeX engine.
+- **Response modes are style presets:** the provider/model is selected by server configuration and routing heuristics, not directly by the response-style control.
+- **No arbitrary tool execution engine:** the chat route does not provide general-purpose code execution or unrestricted external actions.
+- **Fallback rate limiting is in-memory:** it is not a distributed quota across serverless instances. Configure and verify an external limiter for production traffic.
+- **Billing and SaaS foundations require live validation:** Stripe, Supabase quota accounting, and subscription transitions must be tested against correctly configured services before accepting paid users.
 - **No production SLA is implied:** availability, provider limits, latency, and costs depend on your deployment and selected third-party services.
 
 ## Architecture
@@ -146,7 +147,7 @@ flowchart TD
 ### Request flow
 
 1. The workspace sends the recent conversation messages and selected response settings to the Next.js chat route.
-2. The server validates the payload, applies rate limiting, and checks a Firebase ID token for non-guest requests.
+2. The server validates the bounded payload, applies rate limiting, and requires a valid Firebase ID token for AI requests.
 3. The router ranks configured provider adapters using simple text-based rules and attempts them in sequence.
 4. The selected provider returns either a normal response or streamed SSE chunks.
 5. The workspace renders the answer and persists conversation history in the local browser profile.
@@ -223,7 +224,7 @@ Exact library versions are maintained in **package.json** and the lockfile.
 - Node.js 22 or newer.
 - npm.
 - At least one API key for a supported AI provider.
-- A Firebase project if you want to use account sign-in rather than only guest mode.
+- A Firebase project configured for account sign-in (email/password and/or Google).
 
 ### 1. Clone the repository
 
@@ -370,7 +371,7 @@ TIWAT processes user messages using external model providers. Do not submit pass
 
 - **Authentication:** Firebase Authentication handles account identity and sessions.
 - **Conversation history:** Stored in the current browser profile’s local storage; there is currently no server-side account conversation database or cross-device sync in the chat flow.
-- **Guest mode:** Does not attach a Firebase user token to the AI request. Conversation history can still remain in that browser’s local storage until removed.
+- **Authentication:** AI requests and cloud-history endpoints require a verified Firebase ID token. Browser-local caches should still be cleared on shared devices when appropriate.
 - **AI providers:** Prompts and included text attachment contents are sent to the selected configured provider. If the router retries after a failure, another configured provider may also receive that request.
 - **Analytics:** PostHog starts only when an analytics key is configured. When enabled, the current code turns on autocapture and session recording; configure and disclose this appropriately before public use.
 - **Application configuration:** Firebase web-app values use the **NEXT_PUBLIC_** prefix and are delivered to the browser. They are public configuration, not substitutes for server-side secrets.
