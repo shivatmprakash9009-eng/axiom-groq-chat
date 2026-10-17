@@ -150,7 +150,7 @@ flowchart TD
 2. The server validates the bounded payload, applies rate limiting, and requires a valid Firebase ID token for AI requests.
 3. The router ranks configured provider adapters using simple text-based rules and attempts them in sequence.
 4. The selected provider returns either a normal response or streamed SSE chunks.
-5. The workspace renders the answer and persists conversation history in the local browser profile.
+5. The workspace renders the answer, updates its local cache, and synchronizes signed-in conversation history through the server-side chat-history API.
 
 The health endpoint is informational. A provider listed as configured means its environment key is present; it does not guarantee that the key is valid, that a model is available, or that a provider is currently healthy.
 
@@ -370,7 +370,7 @@ TIWAT processes user messages using external model providers. Do not submit pass
 ### Current data handling
 
 - **Authentication:** Firebase Authentication handles account identity and sessions.
-- **Conversation history:** Stored in the current browser profile’s local storage; there is currently no server-side account conversation database or cross-device sync in the chat flow.
+- **Conversation history:** Signed-in chat history is stored through the authenticated server-side Supabase API and cached in the browser profile. Cross-device recovery depends on valid Supabase configuration and successful synchronization.
 - **Authentication:** AI requests and cloud-history endpoints require a verified Firebase ID token. Browser-local caches should still be cleared on shared devices when appropriate.
 - **AI providers:** Prompts and included text attachment contents are sent to the selected configured provider. If the router retries after a failure, another configured provider may also receive that request.
 - **Analytics:** PostHog starts only when an analytics key is configured. When enabled, the current code turns on autocapture and session recording; configure and disclose this appropriately before public use.
