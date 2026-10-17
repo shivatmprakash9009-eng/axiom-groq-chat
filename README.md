@@ -409,7 +409,7 @@ Verify the selected provider key, model identifier, account permissions, availab
 
 ### Chat history is missing on another device
 
-This is expected in the current implementation. Conversation history is stored in local storage on the browser profile and is not synced to an account database. Export important chats as Markdown or JSON before clearing browser data.
+Check the authenticated cloud-history request and Supabase health endpoint, then review deployment logs. The browser cache remains available locally, but cross-device recovery requires working server-side synchronization. Export important chats as Markdown or JSON before clearing browser data.
 
 ### Rate limiting behaves differently after deployment
 
